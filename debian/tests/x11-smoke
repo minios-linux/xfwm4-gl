@@ -1,0 +1,84 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" != --inside ]; then
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT HUP INT TERM
+    export HOME="$work" XDG_CONFIG_HOME="$work/config" XDG_CACHE_HOME="$work/cache"
+    export XDG_RUNTIME_DIR="$work/runtime" NO_AT_BRIDGE=1
+    export LIBGL_ALWAYS_SOFTWARE=1
+    mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+    dbus-run-session -- xvfb-run -a -s '-screen 0 1024x768x24' "$0" --inside
+    exit
+fi
+
+wm=
+client=
+cleanup() {
+    [ -z "$client" ] || kill "$client" 2>/dev/null || :
+    [ -z "$wm" ] || kill "$wm" 2>/dev/null || :
+}
+trap cleanup EXIT HUP INT TERM
+
+wait_for() {
+    tries=0
+    until "$@"; do
+        tries=$((tries + 1))
+        if [ "$tries" -ge 50 ]; then
+            cat "$HOME/wm.log"
+            return 1
+        fi
+        sleep 0.1
+    done
+}
+backend_is_xrender() {
+    xprop -root _XFWM4_RENDER_BACKEND | grep -q '"xrender"'
+}
+backend_is_absent() {
+    ! xprop -root _XFWM4_RENDER_BACKEND | grep -q ' = '
+}
+client_is_managed() {
+    wmctrl -l | grep -q 'xfwm4-gl-smoke'
+}
+client_is_fullscreen() {
+    xprop -name xfwm4-gl-smoke _NET_WM_STATE | grep -q _NET_WM_STATE_FULLSCREEN
+}
+client_is_not_fullscreen() {
+    ! client_is_fullscreen
+}
+
+xfwm4 --compositor=on --vblank=off >"$HOME/wm.log" 2>&1 &
+wm=$!
+wait_for backend_is_xrender
+kill -0 "$wm"
+printf 'PASS: software rendering falls back to XRender\n'
+
+xmessage -name xfwm4-gl-smoke -title xfwm4-gl-smoke -buttons OK:0 smoke &
+client=$!
+wait_for client_is_managed
+printf 'PASS: client is managed through EWMH\n'
+
+wmctrl -r xfwm4-gl-smoke -e 0,100,120,400,250
+wait_for sh -c 'xwininfo -name xfwm4-gl-smoke | grep -q "Width: 400"'
+wmctrl -r xfwm4-gl-smoke -b add,fullscreen
+wait_for client_is_fullscreen
+wmctrl -r xfwm4-gl-smoke -b remove,fullscreen
+wait_for client_is_not_fullscreen
+kill -0 "$wm"
+printf 'PASS: resize and fullscreen round trip\n'
+
+xfconf-query -c xfwm4 -p /general/use_compositing -s false
+wait_for backend_is_absent
+kill -0 "$wm"
+xfconf-query -c xfwm4 -p /general/use_compositing -s true
+wait_for backend_is_xrender
+kill -0 "$wm"
+printf 'PASS: compositor disable and re-enable\n'
+
+xfconf-query -c xfwm4 -p /general/use_gl_compositing -s false
+wait_for backend_is_xrender
+xfconf-query -c xfwm4 -p /general/use_gl_compositing -s true
+wait_for backend_is_xrender
+kill -0 "$wm"
+printf 'PASS: GL setting toggles preserve software fallback\n'

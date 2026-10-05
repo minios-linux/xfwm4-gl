@@ -1,0 +1,40 @@
+machine minios {
+    cpus: 2
+    ram: 4Gb
+    iso: { source: "${ISO}" }
+    disk main: { size: 8Gb }
+    disk payload: { source: "${PAYLOAD}" }
+    video main: { adapter_type: "qxl" }
+}
+
+test xfwm4_gl_live {
+    minios {
+        start
+        wait "Start MiniOS" timeout 30s
+        press Enter
+        wait "Standard" timeout 5m
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        press F11
+        type "sudo mkdir -p /mnt/xfwm4-test && sudo mount -o ro $(sudo blkid -L XFWM4TEST) /mnt/xfwm4-test && sudo apt-get install -y /mnt/xfwm4-test/*_amd64.deb; RC=$?; printf 'XFWM_PACKAGE_%s_%s\\n' RC $RC"
+        press Enter
+        wait "XFWM_PACKAGE_RC_0" timeout 2m
+        type "sh /mnt/xfwm4-test/live-smoke; RC=$?; printf 'XFWM_LIVE_%s_%s\\n' RC $RC"
+        press Enter
+        wait "XFWM_LIVE_RC_0" timeout 1m
+        press F11
+        type "xfwm4-tweaks-settings &"
+        press Enter
+        wait "Window Manager Tweaks" timeout 30s
+        mouse click "Compositor".from_top(0)
+        wait "Use OpenGL for compositing" timeout 30s
+        wait "Suspend compositing for focused fullscreen windows" timeout 30s
+        screenshot "${SCREENSHOT}"
+        press LeftAlt+F4
+        press LeftCtrl+LeftAlt+t
+        wait "live@" timeout 30s
+        type "sudo poweroff"
+        press Enter
+        sleep 20s
+    }
+}

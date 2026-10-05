@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+backend_is_xrender() {
+    xprop -root _XFWM4_RENDER_BACKEND | grep -q '"xrender"'
+}
+backend_is_absent() {
+    ! xprop -root _XFWM4_RENDER_BACKEND | grep -q ' = '
+}
+wait_for() {
+    tries=0
+    until "$@"; do
+        tries=$((tries + 1))
+        [ "$tries" -lt 50 ] || return 1
+        sleep 0.1
+    done
+}
+
+test "$(sudo dpkg-query -W -f='${Status}' xfwm4-gl)" = 'install ok installed'
+test "$(readlink -f /usr/bin/x-window-manager)" = /usr/bin/xfwm4
+xfwm4 --version
+xfconf-query -c xfwm4 -p /general/use_compositing -s true
+xfwm4 --replace > /tmp/xfwm4-gl-live.log 2>&1 &
+wm=$!
+wait_for backend_is_xrender
+kill -0 "$wm"
+xfconf-query -c xfwm4 -p /general/use_compositing -s false
+wait_for backend_is_absent
+kill -0 "$wm"
+xfconf-query -c xfwm4 -p /general/use_compositing -s true
+wait_for backend_is_xrender
+xfconf-query -c xfwm4 -p /general/use_gl_compositing -s false
+wait_for backend_is_xrender
+xfconf-query -c xfwm4 -p /general/use_gl_compositing -s true
+wait_for backend_is_xrender
+kill -0 "$wm"
+printf 'PASS: installed MiniOS session replacement and compositor lifecycle\n'

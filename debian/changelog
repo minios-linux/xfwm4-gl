@@ -1,0 +1,9 @@
+xfwm4-gl (4.20.0+gl1+git20261001.00710be-1) unstable; urgency=medium
+
+  * Package upstream commit 00710be0c46ec654cd35c1aaec87578b5929d713.
+  * Replace xfwm4 while preserving its executable paths and Xfce settings.
+  * Require OpenGL/EGL support and retain the upstream XRender fallback.
+  * Prevent recursive settings initialization on an empty xfconf profile.
+  * Add installed-package X11 startup and compositor lifecycle checks.
+
+ -- crims0n <crims0n@minios.dev>  Sun, 04 Oct 2026 02:08:40 +0300

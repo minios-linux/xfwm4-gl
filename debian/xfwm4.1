@@ -1,0 +1,41 @@
+.TH XFWM4 1 "October 2026" "xfwm4-gl" "User Commands"
+.SH NAME
+xfwm4 \- Xfce window manager with OpenGL compositing
+.SH SYNOPSIS
+.B xfwm4
+.RI [ options ]
+.SH DESCRIPTION
+xfwm4-gl replaces the Xfce window manager while retaining the xfwm4 command,
+themes and xfconf settings. OpenGL compositing is enabled by default, with
+automatic XRender fallback when accelerated rendering is unavailable.
+.SH OPTIONS
+.TP
+.B --replace
+Replace the running window manager.
+.TP
+.BR --compositor= on|off|auto
+Select the compositor mode.
+.TP
+.BR --vblank= auto|adaptive|off|glx|xpresent
+Select synchronization behavior at startup.
+.TP
+.B --help
+Show available command-line options.
+.TP
+.B --version
+Show the version and compiled features.
+.SH SETTINGS
+The xfwm4 xfconf channel retains the original window manager settings.
+The /general/use_gl_compositing setting enables OpenGL rendering.
+The /general/suspend_compositing_fullscreen setting controls compositor
+suspension for focused fullscreen windows.
+.SH ENVIRONMENT
+.TP
+.B XFWM4_GL_BACKEND=glx
+Request GLX instead of the default EGL backend.
+.SH DIAGNOSTICS
+Use xprop -root _XFWM4_RENDER_BACKEND _XFWM4_VSYNC to inspect the active renderer.
+.SH SEE ALSO
+xfconf-query(1)
+.PP
+https://github.com/fulalas/xfwm4-gl

@@ -1,0 +1,3 @@
+Tests: x11-smoke
+Depends: @, dbus-x11, xvfb, xauth, x11-utils, x11-apps, wmctrl
+Restrictions: allow-stderr

@@ -1,0 +1,41 @@
+Source: xfwm4-gl
+Section: xfce
+Priority: optional
+Maintainer: crims0n <crims0n@minios.dev>
+Build-Depends: debhelper-compat (= 13),
+               gettext,
+               libdrm-dev [!hurd-any],
+               libepoxy-dev,
+               libgtk-3-dev,
+               librsvg2-common,
+               libstartup-notification0-dev,
+               libwnck-3-dev,
+               libxcomposite-dev,
+               libxdamage-dev,
+               libxfce4ui-2-dev,
+               libxfce4util-dev,
+               libxfconf-0-dev,
+               libxfixes-dev,
+               libxft-dev,
+               libxi-dev,
+               libxpresent-dev,
+               libxrandr-dev,
+               libxrender-dev,
+               libxres-dev,
+               xfce4-dev-tools (>= 4.18.1)
+Rules-Requires-Root: no
+Standards-Version: 4.7.0
+Homepage: https://github.com/fulalas/xfwm4-gl
+
+Package: xfwm4-gl
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: librsvg2-common
+Suggests: xfce4
+Provides: xfwm4 (= ${binary:Version}), x-window-manager
+Conflicts: xfwm4
+Replaces: xfwm4
+Description: Xfce window manager with OpenGL compositing
+ This fork of xfwm4 adds an OpenGL compositor with automatic XRender
+ fallback. It retains the original executable names, settings channel,
+ themes and session integration, and replaces the distribution xfwm4 package.

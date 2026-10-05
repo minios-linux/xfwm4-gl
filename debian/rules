@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,-O1 -Wl,-z,defs
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_autoreconf:
+	dh_autoreconf ./autogen.sh -- --enable-maintainer-mode
+
+override_dh_auto_configure:
+	dh_auto_configure -- --enable-maintainer-mode --enable-epoxy --enable-compositor --enable-xpresent
+	grep -q '^#define HAVE_EPOXY 1' config.h
+	grep -q '^#define HAVE_COMPOSITOR 1' config.h
+
+override_dh_installchangelogs:
+	dh_installchangelogs NEWS

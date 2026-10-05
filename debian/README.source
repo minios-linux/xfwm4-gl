@@ -1,0 +1,35 @@
+MiniOS packages the xfwm4-gl fork for Debian Trixie (amd64 and i386).
+Upstream version authority: configure.ac, XDT_VERSION_INIT([4.20.0], [-gl1]).
+Pinned source: 00710be0c46ec654cd35c1aaec87578b5929d713 (2026-10-01).
+The Debian upstream version encodes that base, fork suffix and source commit;
+the final -1 is the first packaging revision, not a first-party release.
+
+Create the orig tarball from the pinned upstream Git tree, without debian/:
+  git archive --format=tar --prefix=xfwm4-gl-4.20.0+gl1+git20261001.00710be/ \
+    00710be0c46ec654cd35c1aaec87578b5929d713 | xz > \
+    /path/to/artifacts/xfwm4-gl_4.20.0+gl1+git20261001.00710be.orig.tar.xz
+Copy the current source, excluding .git, to a build directory beside that
+tarball and use dpkg-source -b there. Build as an unprivileged user.
+
+The package installs the original xfwm4 filenames and cannot coexist with
+xfwm4. Session startup and xfconf use their existing names. Runtime renderer
+selection and fallback remain upstream defaults; inspect them with:
+  xprop -root _XFWM4_RENDER_BACKEND _XFWM4_VSYNC
+
+Validation:
+  debian/tests/x11-smoke is an autopkgtest for the installed package. It
+  creates a private profile and checks software fallback, EWMH client
+  management, resize/fullscreen, and compositor/GL setting toggles.
+  Upstream currently has no unit test suite; make check alone is not runtime
+  evidence. Run the installed-package test explicitly on both architectures.
+
+  debian/tests/minios.testo exercises a MiniOS Standard amd64 session with
+  QXL and the new compositor controls. Use the MiniOS Testo fork with a unique
+  prefix. Supply ISO (an exact workspace ISO), PAYLOAD (a QCOW2 disk with an
+  ext4 filesystem labelled XFWM4TEST), and SCREENSHOT via --param NAME VALUE.
+  The payload contains the clean-built xfwm4-gl amd64 package, live-smoke,
+  and any runtime dependencies missing from the selected ISO. The current
+  Standard image needs Debian Trixie's libxpresent1_1.0.1-1+b2_amd64.deb.
+  A locally installed candidate is package acceptance, not published APT
+  repository or rebuilt-ISO acceptance. QXL/Xvfb cover XRender fallback, not
+  accelerated OpenGL on physical GPUs.

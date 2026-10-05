@@ -1,0 +1,24 @@
+Description: Do not react recursively to defaults written while loading settings
+ Loading an empty xfconf profile writes missing defaults synchronously. The
+ property-changed callback reloads the settings and can activate the compositor
+ before initialization has finished, leading to a second manual redirection and
+ a fatal Composite BadAccess error. Block only our own callback while loading
+ the settings snapshot; the values are consumed by that same loadSettings call.
+Author: MiniOS Linux <support@minios.dev>
+Forwarded: no
+Last-Update: 2026-10-03
+
+--- a/src/settings.c
++++ b/src/settings.c
+@@ -769,7 +769,11 @@
+     TRACE ("entering");
+ 
+     loadRcData (screen_info, rc);
++    g_signal_handlers_block_by_func (screen_info->xfwm4_channel,
++                                    cb_xfwm4_channel_property_changed, screen_info);
+     loadXfconfData (screen_info, rc);
++    g_signal_handlers_unblock_by_func (screen_info->xfwm4_channel,
++                                      cb_xfwm4_channel_property_changed, screen_info);
+     loadTheme (screen_info, rc);
+     update_grabs (screen_info);
+ 
