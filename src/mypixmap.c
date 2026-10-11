@@ -760,7 +760,7 @@ xfwmPixmapRefreshPict (xfwmPixmap * pm)
 #endif
 
 static GdkPixbuf *
-xfwmPixmapCompose (GdkPixbuf *pixbuf, const gchar * dir, const gchar * file)
+xfwmPixmapCompose (GdkPixbuf *pixbuf, const gchar * dir, const gchar * file, gint scale)
 {
     GdkPixbuf *alpha;
     gchar *filepng;
@@ -787,7 +787,27 @@ xfwmPixmapCompose (GdkPixbuf *pixbuf, const gchar * dir, const gchar * file)
 
         if (g_file_test (filename, G_FILE_TEST_IS_REGULAR))
         {
-            alpha = gdk_pixbuf_new_from_file (filename, NULL);
+            if (scale > 1 && i == 0
+                && gdk_pixbuf_get_file_info (filename, &width, &height) != NULL)
+            {
+                /* Rasterize SVG at destination resolution instead of enlarging
+                 * an already rasterized image. */
+                alpha = gdk_pixbuf_new_from_file_at_scale (filename,
+                                                          width * scale, height * scale,
+                                                          FALSE, NULL);
+            }
+            else
+            {
+                alpha = gdk_pixbuf_new_from_file (filename, NULL);
+                if (alpha != NULL && scale > 1)
+                {
+                    GdkPixbuf *scaled = gdk_pixbuf_scale_simple (alpha,
+                        gdk_pixbuf_get_width (alpha) * scale,
+                        gdk_pixbuf_get_height (alpha) * scale, GDK_INTERP_NEAREST);
+                    g_object_unref (alpha);
+                    alpha = scaled;
+                }
+            }
         }
         g_free (filename);
         ++i;
@@ -994,8 +1014,17 @@ xfwmPixmapLoad (ScreenInfo * screen_info, xfwmPixmap * pm, const gchar * dir, co
     pixbuf = xpm_image_load (filename, cs);
     g_free (filename);
 
+    if (pixbuf != NULL && screen_info->theme_scale > 1)
+    {
+        GdkPixbuf *scaled = gdk_pixbuf_scale_simple (pixbuf,
+            gdk_pixbuf_get_width (pixbuf) * screen_info->theme_scale,
+            gdk_pixbuf_get_height (pixbuf) * screen_info->theme_scale, GDK_INTERP_NEAREST);
+        g_object_unref (pixbuf);
+        pixbuf = scaled;
+    }
+
     /* Compose with other image formats, if any available. */
-    pixbuf = xfwmPixmapCompose (pixbuf, dir, file);
+    pixbuf = xfwmPixmapCompose (pixbuf, dir, file, MAX (screen_info->theme_scale, 1));
     if (!pixbuf)
     {
         /*

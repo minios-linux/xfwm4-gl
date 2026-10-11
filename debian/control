@@ -22,7 +22,15 @@ Build-Depends: debhelper-compat (= 13),
                libxrandr-dev,
                libxrender-dev,
                libxres-dev,
-               xfce4-dev-tools (>= 4.18.1)
+               xfce4-dev-tools (>= 4.18.1),
+               xvfb <!nocheck>,
+               xauth <!nocheck>,
+               dbus-x11 <!nocheck>,
+               python3-xlib <!nocheck>,
+               python3-pil <!nocheck>,
+               x11-utils <!nocheck>,
+               xdotool <!nocheck>,
+               wmctrl <!nocheck>
 Rules-Requires-Root: no
 Standards-Version: 4.7.0
 Homepage: https://github.com/fulalas/xfwm4-gl

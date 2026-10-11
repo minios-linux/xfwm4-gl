@@ -334,6 +334,9 @@ myScreenInit (DisplayInfo *display_info, GdkScreen *gscr, unsigned long event_ma
     myScreenInvalidateMonitorCache (screen_info);
     myScreenRebuildMonitorIndex (screen_info);
 
+    /* Seed the live coordinate space before any existing windows are framed. */
+    clientUpdateGlobalScale (screen_info);
+
     return (screen_info);
 }
 
@@ -892,6 +895,9 @@ myScreenUpdateFontAttr (ScreenInfo *screen_info)
 
     widget = myScreenGetGtkWidget (screen_info);
     scale = gtk_widget_get_scale_factor (widget);
+    gint global_scale = screen_info->global_scale_toolkit;
+    if (global_scale == 1 || global_scale == 2)
+        scale = global_scale;
     screen_info->pango_attr_list = pango_attr_list_new ();
     attr = pango_attr_scale_new (scale);
     pango_attr_list_insert (screen_info->pango_attr_list, attr);

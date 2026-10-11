@@ -414,6 +414,7 @@ void                     clientUnframeAll                       (ScreenInfo *);
 void                     clientInstallColormaps                 (Client *);
 void                     clientUpdateColormaps                  (Client *);
 void                     clientUpdateName                       (Client *);
+gboolean                 clientUpdateGlobalScale                (ScreenInfo *);
 void                     clientUpdateAllFrames                  (ScreenInfo *,
                                                                  gboolean);
 void                     clientGrabButtons                      (Client *);

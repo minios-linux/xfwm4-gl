@@ -34,6 +34,16 @@
 
 #ifdef HAVE_EPOXY
 
+void             xfwmGLAnimateWindow            (CWindow *, gboolean restore);
+void             xfwmGLAnimateOpen              (CWindow *);
+void             xfwmGLAnimateClose             (CWindow *);
+void             xfwmGLFreeCloseSnapshot        (CWindow *);
+void             xfwmGLConfigureAnimation       (CWindow *);
+void             xfwmGLCancelWindowAnimation    (CWindow *);
+void             xfwmGLCancelAnimations         (ScreenInfo *);
+void             xfwmGLSetPeek                  (ScreenInfo *, Window,
+                                                 gint, gint, gint);
+
 gboolean         xfwmGLScreenInit               (ScreenInfo *);
 void             xfwmGLScreenFinish             (ScreenInfo *);
 

@@ -37,7 +37,7 @@
 #endif
 
 #ifndef WIN_ICON_BORDER
-#define WIN_ICON_BORDER 5
+#define WIN_ICON_BORDER XFWM_TABWIN_PREVIEW_PADDING
 #endif
 
 #ifndef WIN_MAX_RATIO
@@ -47,6 +47,8 @@
 #include <math.h>
 #include <glib.h>
 #include <gdk/gdk.h>
+#include <gdk/gdkx.h>
+#include <X11/Xatom.h>
 #include <gtk/gtk.h>
 #include <libxfce4util/libxfce4util.h>
 
@@ -57,16 +59,10 @@
 #include "tabwin.h"
 #include "settings.h"
 #include "compositor.h"
+#include "xfwm-tabwin-preview.h"
+#include "xfwm-tabwin-style.h"
 
-#define XFWM_TABWIN_NAME "xfwm-tabwin"
-
-static const gchar *xfwm_tabwin_default_css =
-"#" XFWM_TABWIN_NAME " {"
-"  padding: 4px;"
-"  border-radius: 10px;"
-"  border: 1px solid @theme_selected_bg_color;"
-"  background-color: @theme_bg_color;"
-"}";
+#define XFWM_TABWIN_NAME XFWM_TABWIN_STYLE_NAME
 
 static void tabwin_widget_class_init (TabwinWidgetClass *klass, gpointer data);
 
@@ -151,32 +147,9 @@ tabwin_draw (GtkWidget *tabwin_widget, cairo_t *cr, gpointer data)
 static void
 apply_default_theme (TabwinWidget *tabwin_widget, ScreenInfo *screen_info)
 {
-    GtkSettings    *settings;
-    gchar          *theme;
-    GtkCssProvider *provider;
-    gchar          *css;
-
     if (!screen_info->tabwin_provider_ready)
     {
-        settings = gtk_settings_get_default ();
-
-        g_object_get (settings, "gtk-theme-name", &theme, NULL);
-        g_return_if_fail (theme != NULL);
-
-        provider = gtk_css_provider_get_named (theme, NULL);
-        g_free (theme);
-        g_return_if_fail (provider != NULL);
-
-        css = gtk_css_provider_to_string (provider);
-        if (g_strrstr (css, "#" XFWM_TABWIN_NAME) == NULL)
-        {
-            /* apply default css style */
-            provider = gtk_css_provider_new ();
-            gtk_css_provider_load_from_data (provider, xfwm_tabwin_default_css, -1, NULL);
-            screen_info->tabwin_provider = provider;
-        }
-        g_free (css);
-
+        screen_info->tabwin_provider = xfwm_tabwin_default_provider (GTK_WIDGET (tabwin_widget));
         screen_info->tabwin_provider_ready = TRUE;
     }
 
@@ -485,6 +458,7 @@ createWindowlist (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
     gint packpos;
     gint label_width;
     gint size_request;
+    gint spacing;
     Tabwin *tabwin;
 
     TRACE ("entering");
@@ -496,13 +470,15 @@ createWindowlist (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
     c = NULL;
     selected = NULL;
     tabwin_widget->widgets = NULL;
-    size_request = tabwin->icon_size + tabwin->label_height + 2 * WIN_ICON_BORDER;
+    size_request = tabwin->preview_height + tabwin->label_height + 2 * tabwin->selection_padding;
 
     windowlist = gtk_grid_new ();
     gtk_grid_set_row_homogeneous (GTK_GRID (windowlist), TRUE);
-    gtk_grid_set_row_spacing (GTK_GRID (windowlist), 4);
+    spacing = CLAMP (xfconf_channel_get_int (screen_info->xfwm4_channel,
+                         "/general/cycle_spacing", XFWM_TABWIN_STYLE_SPACING), 0, 20);
+    gtk_grid_set_row_spacing (GTK_GRID (windowlist), spacing);
     gtk_grid_set_column_homogeneous (GTK_GRID (windowlist), TRUE);
-    gtk_grid_set_column_spacing (GTK_GRID (windowlist), 4);
+    gtk_grid_set_column_spacing (GTK_GRID (windowlist), spacing);
 
     /* pack the client icons */
     icon_list = tabwin->icon_list;
@@ -515,6 +491,30 @@ createWindowlist (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
 
         window_button = gtk_button_new ();
         gtk_button_set_relief (GTK_BUTTON (window_button), GTK_RELIEF_NONE);
+        gchar *selection_color = xfconf_channel_get_string (screen_info->xfwm4_channel, "/general/cycle_selection_color", "#398ee7");
+        XfwmTabwinSelectionStyle selection = {
+            xfconf_channel_get_bool (screen_info->xfwm4_channel, "/general/cycle_selection_custom", FALSE), selection_color,
+            xfconf_channel_get_int (screen_info->xfwm4_channel, "/general/cycle_selection_radius", XFWM_TABWIN_SELECTION_RADIUS),
+            xfconf_channel_get_int (screen_info->xfwm4_channel, "/general/cycle_selection_opacity", XFWM_TABWIN_SELECTION_OPACITY)
+        };
+        GtkCssProvider *selection_provider = gtk_css_provider_new ();
+        GtkWidgetPath *selection_path = gtk_widget_path_copy (gtk_widget_get_path (GTK_WIDGET (tabwin_widget)));
+        gtk_widget_path_append_type (selection_path, GTK_TYPE_BUTTON);
+        gtk_widget_path_iter_set_object_name (selection_path, -1, "button");
+        gtk_widget_path_iter_add_class (selection_path, -1, GTK_STYLE_CLASS_FLAT);
+        GtkStyleContext *selection_context = gtk_style_context_new ();
+        gtk_style_context_set_path (selection_context, selection_path);
+        gtk_style_context_set_parent (selection_context, gtk_widget_get_style_context (GTK_WIDGET (tabwin_widget)));
+        gtk_style_context_set_screen (selection_context, screen_info->gscr);
+        gtk_style_context_set_state (selection_context, GTK_STATE_FLAG_CHECKED);
+        gchar *selection_css = xfwm_tabwin_selection_css (selection_context, &selection);
+        gtk_widget_path_unref (selection_path);
+        g_object_unref (selection_context);
+        gtk_css_provider_load_from_data (selection_provider, selection_css, -1, NULL);
+        gtk_style_context_add_provider (gtk_widget_get_style_context (window_button), GTK_STYLE_PROVIDER (selection_provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 2);
+        g_object_unref (selection_provider);
+        g_free (selection_css);
+        g_free (selection_color);
         g_object_set_data (G_OBJECT (window_button), "client-ptr-val", c);
         g_signal_connect (window_button, "enter-notify-event",
                           G_CALLBACK (cb_window_button_enter), tabwin_widget);
@@ -525,7 +525,8 @@ createWindowlist (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
         icon = createWindowIcon (screen_info->gscr, icon_pixbuf, tabwin->icon_size, tabwin->icon_scale);
         if (screen_info->params->cycle_tabwin_mode == STANDARD_ICON_GRID)
         {
-            gtk_widget_set_size_request (GTK_WIDGET (window_button), size_request, size_request);
+            gtk_widget_set_size_request (GTK_WIDGET (window_button),
+                                         tabwin->preview_width + 2 * tabwin->selection_padding, size_request);
             buttonbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
             buttonlabel = gtk_label_new ("");
             gtk_label_set_xalign (GTK_LABEL (buttonlabel), 0.5);
@@ -558,6 +559,9 @@ createWindowlist (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
             gtk_widget_set_valign (icon, GTK_ALIGN_CENTER);
             gtk_box_pack_start (GTK_BOX (buttonbox), icon, FALSE, FALSE, 0);
         }
+        /* Keep the inset inside the painted button. GtkButton's container
+         * border is outside its CSS node and does not pad the selection. */
+        gtk_container_set_border_width (GTK_CONTAINER (buttonbox), tabwin->selection_padding);
         gtk_container_add (GTK_CONTAINER (window_button), buttonbox);
 
         gtk_label_set_justify (GTK_LABEL (buttonlabel), GTK_JUSTIFY_CENTER);
@@ -593,6 +597,42 @@ createWindowlist (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
     return windowlist;
 }
 
+/* Identified as a separate blur category from GTK menus and tooltips.
+ * Only the Alt+Tab card surface blurs; CSS shadow margins remain untouched. */
+static void
+tabwin_publish_blur_area (TabwinWidget *widget, gint width, gint height)
+{
+    ScreenInfo *screen_info;
+    GdkWindow *window;
+    Display *dpy;
+    Window xid;
+    Atom marker, rect_atom;
+    unsigned long enabled = 1, rect[4];
+
+    if (widget->tabwin == NULL || widget->tabwin->selected == NULL)
+        return;
+    screen_info = ((Client *) widget->tabwin->selected->data)->screen_info;
+    if (!screen_info->params->blur_alt_tab)
+        return;
+    window = gtk_widget_get_window (GTK_WIDGET (widget));
+    if (!window || width <= 0 || height <= 0)
+        return;
+    dpy = myScreenGetXDisplay (screen_info);
+    xid = GDK_WINDOW_XID (window);
+    marker = XInternAtom (dpy, "_XFWM4_TABWIN_BLUR", False);
+    rect_atom = XInternAtom (dpy, "_XFWM4_BLUR_CONTENT_RECT", False);
+    /* The container border is layout padding INSIDE the painted background.
+     * Native compositor shadows are already outside this drawable. */
+    rect[0] = rect[1] = 0;
+    rect[2] = width * gtk_widget_get_scale_factor (GTK_WIDGET (widget));
+    rect[3] = height * gtk_widget_get_scale_factor (GTK_WIDGET (widget));
+    XChangeProperty (dpy, xid, marker, XA_CARDINAL, 32, PropModeReplace,
+                     (unsigned char *) &enabled, 1);
+    XChangeProperty (dpy, xid, rect_atom, XA_CARDINAL, 32, PropModeReplace,
+                     (unsigned char *) rect, 4);
+    XFlush (dpy);
+}
+
 static gboolean
 tabwinConfigure (TabwinWidget *tabwin_widget, GdkEventConfigure *event)
 {
@@ -615,6 +655,7 @@ tabwinConfigure (TabwinWidget *tabwin_widget, GdkEventConfigure *event)
 
     tabwin_widget->width = event->width;
     tabwin_widget->height = event->height;
+    tabwin_publish_blur_area (tabwin_widget, event->width, event->height);
 
     return FALSE;
 }
@@ -656,6 +697,7 @@ computeTabwinData (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
     GList *client_list;
     gint size_request;
     gint standard_icon_size;
+    gint spacing, outer_padding, available_width, available_height;
     gboolean preview;
 
     TRACE ("entering");
@@ -668,6 +710,13 @@ computeTabwinData (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
     tabwin->label_height = 30;
     preview = screen_info->params->cycle_preview && compositorIsActive (screen_info);
     tabwin->icon_scale = gtk_widget_get_scale_factor (GTK_WIDGET (tabwin_widget));
+    tabwin->selection_padding = CLAMP (xfconf_channel_get_int (screen_info->xfwm4_channel,
+                                        "/general/cycle_selection_padding", XFWM_TABWIN_PREVIEW_PADDING), 0, 32);
+    spacing = CLAMP (xfconf_channel_get_int (screen_info->xfwm4_channel,
+                         "/general/cycle_spacing", XFWM_TABWIN_STYLE_SPACING), 0, 20);
+    outer_padding = 2 * gtk_container_get_border_width (GTK_CONTAINER (tabwin_widget));
+    available_width = MAX (1, tabwin->monitor_width * WIN_MAX_RATIO - outer_padding);
+    available_height = MAX (1, tabwin->monitor_height * WIN_MAX_RATIO - outer_padding);
 
     /* We need to account for changes to the font size in the user's
      * appearance theme and gtkrc settings */
@@ -684,37 +733,43 @@ computeTabwinData (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
 
         if (preview)
         {
-            tabwin->icon_size = WIN_PREVIEW_SIZE;
-            gtk_widget_style_get (GTK_WIDGET (tabwin_widget),
-                                  "preview-size", &tabwin->icon_size, NULL);
+            tabwin->preview_width = CLAMP (xfconf_channel_get_int (screen_info->xfwm4_channel, "/general/cycle_preview_width", 300), 120, 800);
+            gint maximum_height = CLAMP (xfconf_channel_get_int (screen_info->xfwm4_channel, "/general/cycle_preview_height", 192), 80, 340);
+            tabwin->preview_height = MAX (24, maximum_height - tabwin->label_height - 2 * tabwin->selection_padding);
+            tabwin->preview_width = MAX (24, tabwin->preview_width - 2 * tabwin->selection_padding);
+            tabwin->icon_size = MAX (tabwin->preview_width, tabwin->preview_height);
         }
         else
         {
             tabwin->icon_size = standard_icon_size;
+            tabwin->preview_width = tabwin->preview_height = tabwin->icon_size;
         }
-        size_request = tabwin->icon_size + tabwin->label_height + 2 * WIN_ICON_BORDER;
-        tabwin->grid_cols = MAX (1, (int) (floor ((double) tabwin->monitor_width * WIN_MAX_RATIO /
-                                                  (double) size_request)));
+        size_request = tabwin->preview_height + tabwin->label_height + 2 * tabwin->selection_padding;
+        tabwin->grid_cols = MAX (1, (available_width + spacing) /
+                                  (tabwin->preview_width + 2 * tabwin->selection_padding + spacing));
         tabwin->grid_rows = (int) (ceil ((double) tabwin->client_count /
                                          (double) tabwin->grid_cols));
 
         /* If we run out of space, halve the icon size to make more room. */
-        while ((size_request) * tabwin->grid_rows + tabwin->label_height >
-               ((double) tabwin->monitor_height) * WIN_MAX_RATIO)
+        while (size_request * tabwin->grid_rows + spacing * (tabwin->grid_rows - 1) +
+               tabwin->label_height > available_height)
         {
             tabwin->icon_size = tabwin->icon_size / 2;
+            tabwin->preview_width = MAX (8, tabwin->preview_width / 2);
+            tabwin->preview_height = MAX (8, tabwin->preview_height / 2);
             if (preview && tabwin->icon_size <= standard_icon_size)
             {
                 /* Disable preview otherwise it'd be too slow */
                 preview = FALSE;
                 /* switch back to regular icon size */
                 tabwin->icon_size = standard_icon_size;
+                tabwin->preview_width = tabwin->preview_height = tabwin->icon_size;
             }
-            size_request = tabwin->icon_size + tabwin->label_height + 2 * WIN_ICON_BORDER;
+            size_request = tabwin->preview_height + tabwin->label_height + 2 * tabwin->selection_padding;
 
             /* Recalculate with new icon size */
-            tabwin->grid_cols = MAX (1, (int) (floor ((double) tabwin->monitor_width * WIN_MAX_RATIO /
-                                                      (double) size_request)));
+            tabwin->grid_cols = MAX (1, (available_width + spacing) /
+                                      (tabwin->preview_width + 2 * tabwin->selection_padding + spacing));
             tabwin->grid_rows = (int) (ceil ((double) tabwin->client_count /
                                              (double) tabwin->grid_cols));
 
@@ -731,6 +786,7 @@ computeTabwinData (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
         tabwin->icon_size = LISTVIEW_WIN_ICON_SIZE;
         gtk_widget_style_get (GTK_WIDGET (tabwin_widget),
                               "listview-icon-size", &tabwin->icon_size, NULL);
+        tabwin->preview_width = tabwin->preview_height = tabwin->icon_size;
         tabwin->grid_rows = MAX (1, (int) (floor ((double) tabwin->monitor_height * WIN_MAX_RATIO /
                                                   (double) (tabwin->icon_size + 2 * WIN_ICON_BORDER))));
         tabwin->grid_cols = (int) (ceil ((double) tabwin->client_count /
@@ -746,8 +802,8 @@ computeTabwinData (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
         {
             if (preview)
             {
-                icon_pixbuf = getClientIcon (c, tabwin->icon_size * tabwin->icon_scale,
-                                             tabwin->icon_size * tabwin->icon_scale);
+                icon_pixbuf = getClientIcon (c, tabwin->preview_width * tabwin->icon_scale,
+                                             tabwin->preview_height * tabwin->icon_scale);
             }
             else
             {
@@ -765,6 +821,125 @@ computeTabwinData (ScreenInfo *screen_info, TabwinWidget *tabwin_widget)
     }
 }
 
+/* Keep the original direct box layout unless its actual content overflows.
+ * A scrolled window has a tiny minimum request even when natural propagation
+ * is enabled; wrapping every popup shrinks an ordinary Alt+Tab to that minimum. */
+static void
+tabwinFitToMonitor (TabwinWidget *widget, ScreenInfo *screen_info)
+{
+    GtkWidget *scroller = g_object_get_data (G_OBJECT (widget), "tabwin-scroller");
+    GtkWidget *content = g_object_get_data (G_OBJECT (widget), "tabwin-content");
+    GdkRectangle monitor;
+    GtkRequisition minimum, natural;
+    gint width, height, limit_width, limit_height, border;
+    if (!content)
+        return;
+    xfwm_get_monitor_geometry (screen_info->gscr, widget->monitor_num, &monitor, FALSE);
+    limit_width = MAX (1, (gint) (monitor.width * WIN_MAX_RATIO));
+    limit_height = MAX (1, (gint) (monitor.height * WIN_MAX_RATIO));
+    border = MIN ((gint) gtk_container_get_border_width (GTK_CONTAINER (widget)),
+                  MIN (limit_width, limit_height) / 4);
+    gtk_container_set_border_width (GTK_CONTAINER (widget), border);
+    width = MAX (1, limit_width - 2 * border);
+    height = MAX (1, limit_height - 2 * border);
+    gtk_widget_get_preferred_size (content, &minimum, &natural);
+    if (!scroller)
+    {
+        if (natural.width <= width && natural.height <= height)
+            return;
+        scroller = gtk_scrolled_window_new (NULL, NULL);
+        gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroller),
+                                        GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+        gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scroller), GTK_SHADOW_NONE);
+        gtk_scrolled_window_set_propagate_natural_width (GTK_SCROLLED_WINDOW (scroller), TRUE);
+        gtk_scrolled_window_set_propagate_natural_height (GTK_SCROLLED_WINDOW (scroller), TRUE);
+        g_object_ref (content);
+        gtk_container_remove (GTK_CONTAINER (widget), content);
+        gtk_container_add (GTK_CONTAINER (scroller), content);
+        gtk_container_add (GTK_CONTAINER (widget), scroller);
+        g_object_unref (content);
+        g_object_set_data (G_OBJECT (widget), "tabwin-scroller", scroller);
+        gtk_widget_show_all (scroller);
+        if (widget->selected)
+            gtk_widget_grab_focus (widget->selected);
+    }
+    width = MIN (width, MAX (1, natural.width));
+    height = MIN (height, MAX (1, natural.height));
+    for (guint i = 0; i < 3; i++)
+    {
+        gtk_scrolled_window_set_max_content_width (GTK_SCROLLED_WINDOW (scroller), -1);
+        gtk_scrolled_window_set_max_content_height (GTK_SCROLLED_WINDOW (scroller), -1);
+        gtk_scrolled_window_set_min_content_width (GTK_SCROLLED_WINDOW (scroller), width);
+        gtk_scrolled_window_set_min_content_height (GTK_SCROLLED_WINDOW (scroller), height);
+        gtk_scrolled_window_set_max_content_width (GTK_SCROLLED_WINDOW (scroller), width);
+        gtk_scrolled_window_set_max_content_height (GTK_SCROLLED_WINDOW (scroller), height);
+        gtk_widget_get_preferred_size (scroller, &minimum, &natural);
+        natural.width += 2 * border;
+        natural.height += 2 * border;
+        if (natural.width <= limit_width && natural.height <= limit_height)
+            break;
+        width = MAX (1, width - MAX (0, natural.width - limit_width));
+        height = MAX (1, height - MAX (0, natural.height - limit_height));
+    }
+    if (g_getenv ("XFWM4_ANIMATION_DEBUG"))
+        g_message ("tabwin fit: min=%d,%d natural=%d,%d limit=%d,%d",
+                   minimum.width, minimum.height, natural.width, natural.height,
+                   limit_width, limit_height);
+}
+
+static void
+tabwinApplyAppearance (TabwinWidget *tabwin_widget, ScreenInfo *screen_info)
+{
+    XfconfChannel *channel = screen_info->xfwm4_channel;
+    GtkStyleContext *context = gtk_widget_get_style_context (GTK_WIDGET (tabwin_widget));
+    GtkCssProvider *old_provider = g_object_get_data (G_OBJECT (tabwin_widget), "tabwin-appearance-provider");
+    GtkCssProvider *provider = gtk_css_provider_new ();
+    gchar *color = xfconf_channel_get_string (channel, "/general/cycle_background_color", XFWM_TABWIN_STYLE_COLOR);
+    XfwmTabwinStyle style = {
+        xfconf_channel_get_bool (channel, "/general/cycle_background_custom", FALSE), color,
+        xfconf_channel_get_int (channel, "/general/cycle_background_opacity", XFWM_TABWIN_STYLE_OPACITY),
+        xfconf_channel_get_int (channel, "/general/cycle_corner_radius", XFWM_TABWIN_STYLE_RADIUS),
+        xfconf_channel_get_int (channel, "/general/cycle_border_width", XFWM_TABWIN_STYLE_BORDER),
+        xfconf_channel_get_int (channel, "/general/cycle_content_padding", XFWM_TABWIN_STYLE_PADDING)
+    };
+    gchar *css;
+
+    if (old_provider != NULL)
+        gtk_style_context_remove_provider (context, GTK_STYLE_PROVIDER (old_provider));
+    css = xfwm_tabwin_style_css (context, &style);
+    gtk_css_provider_load_from_data (provider, css, -1, NULL);
+    gtk_style_context_add_provider (context, GTK_STYLE_PROVIDER (provider),
+                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    g_object_set_data_full (G_OBJECT (tabwin_widget), "tabwin-appearance-provider", provider, g_object_unref);
+    gtk_container_set_border_width (GTK_CONTAINER (tabwin_widget),
+                                    CLAMP (style.content_padding, 0, 64) + CLAMP (style.border_width, 0, 5));
+    if (GTK_IS_GRID (tabwin_widget->container))
+    {
+        gint spacing = CLAMP (xfconf_channel_get_int (channel, "/general/cycle_spacing", XFWM_TABWIN_STYLE_SPACING), 0, 20);
+        gtk_grid_set_row_spacing (GTK_GRID (tabwin_widget->container), spacing);
+        gtk_grid_set_column_spacing (GTK_GRID (tabwin_widget->container), spacing);
+    }
+    gtk_widget_queue_resize (GTK_WIDGET (tabwin_widget));
+    tabwinFitToMonitor (tabwin_widget, screen_info);
+    g_free (css);
+    g_free (color);
+}
+
+static void
+tabwinAppearanceChanged (XfconfChannel *channel, const gchar *property,
+                         const GValue *value, TabwinWidget *tabwin_widget)
+{
+    if (g_str_has_prefix (property, "/general/cycle_background_") ||
+        !strcmp (property, "/general/cycle_corner_radius") ||
+        !strcmp (property, "/general/cycle_border_width") ||
+        !strcmp (property, "/general/cycle_content_padding") ||
+        !strcmp (property, "/general/cycle_spacing"))
+    {
+        ScreenInfo *screen_info = g_object_get_data (G_OBJECT (tabwin_widget), "tabwin-screen-info");
+        tabwinApplyAppearance (tabwin_widget, screen_info);
+    }
+}
+
 static TabwinWidget *
 tabwinCreateWidget (Tabwin *tabwin, ScreenInfo *screen_info, gint monitor_num)
 {
@@ -775,8 +950,6 @@ tabwinCreateWidget (Tabwin *tabwin, ScreenInfo *screen_info, gint monitor_num)
     GtkWidget *vbox;
     GtkWidget *windowlist;
     GdkRectangle monitor;
-    gint border_radius = 0;
-    GtkBorder border, padding;
 
     TRACE ("monitor %i", monitor_num);
 
@@ -788,11 +961,16 @@ tabwinCreateWidget (Tabwin *tabwin, ScreenInfo *screen_info, gint monitor_num)
     tabwin_widget->selected_callback = 0;
     tabwin_widget->width = -1;
     tabwin_widget->height = -1;
+    tabwin_widget->container = NULL;
 
     gtk_window_set_screen (GTK_WINDOW (tabwin_widget), screen_info->gscr);
     gtk_window_set_default_size (GTK_WINDOW (tabwin_widget), 0, 0);
     gtk_widget_set_name (GTK_WIDGET (tabwin_widget), XFWM_TABWIN_NAME);
     apply_default_theme (tabwin_widget, screen_info);
+    tabwinApplyAppearance (tabwin_widget, screen_info);
+    g_object_set_data (G_OBJECT (tabwin_widget), "tabwin-screen-info", screen_info);
+    g_signal_connect_object (screen_info->xfwm4_channel, "property-changed",
+                             G_CALLBACK (tabwinAppearanceChanged), tabwin_widget, 0);
 
     /* Check for compositing and set visual for it */
     screen = gtk_widget_get_screen (GTK_WIDGET (tabwin_widget));
@@ -811,15 +989,6 @@ tabwinCreateWidget (Tabwin *tabwin, ScreenInfo *screen_info, gint monitor_num)
         computeTabwinData (screen_info, tabwin_widget);
     }
     ctx = gtk_widget_get_style_context (GTK_WIDGET (tabwin_widget));
-    gtk_style_context_get (ctx, GTK_STATE_FLAG_NORMAL,
-                           GTK_STYLE_PROPERTY_BORDER_RADIUS, &border_radius,
-                           NULL);
-    gtk_style_context_get_border (ctx, GTK_STATE_FLAG_NORMAL, &border);
-    gtk_style_context_get_padding (ctx, GTK_STATE_FLAG_NORMAL, &padding);
-    gtk_container_set_border_width (GTK_CONTAINER (tabwin_widget),
-                                    border_radius +
-                                    MAX (border.left, MAX (border.top, (MAX (border.right, border.bottom)))) +
-                                    MAX (padding.left, MAX (padding.top, (MAX (padding.right, padding.bottom)))));
     gtk_window_set_position (GTK_WINDOW (tabwin_widget), GTK_WIN_POS_NONE);
     xfwm_get_monitor_geometry (screen_info->gscr, tabwin_widget->monitor_num, &monitor, FALSE);
     gtk_window_move (GTK_WINDOW (tabwin_widget), monitor.x + monitor.width / 2,
@@ -827,6 +996,7 @@ tabwinCreateWidget (Tabwin *tabwin, ScreenInfo *screen_info, gint monitor_num)
 
     vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 3);
     gtk_container_add (GTK_CONTAINER (tabwin_widget), vbox);
+    g_object_set_data (G_OBJECT (tabwin_widget), "tabwin-content", vbox);
 
     if (screen_info->params->cycle_tabwin_mode == STANDARD_ICON_GRID)
     {
@@ -855,7 +1025,16 @@ tabwinCreateWidget (Tabwin *tabwin, ScreenInfo *screen_info, gint monitor_num)
                       G_CALLBACK (tabwin_draw),
                       (gpointer) tabwin_widget);
 
+    gtk_widget_show_all (vbox);
+    tabwinFitToMonitor (tabwin_widget, screen_info);
     gtk_widget_show_all (GTK_WIDGET (tabwin_widget));
+    tabwinFitToMonitor (tabwin_widget, screen_info);
+    if (screen_info->params->blur_enabled && screen_info->params->blur_alt_tab)
+    {
+        GtkAllocation allocation;
+        gtk_widget_get_allocation (GTK_WIDGET (tabwin_widget), &allocation);
+        tabwin_publish_blur_area (tabwin_widget, allocation.width, allocation.height);
+    }
 
     return tabwin_widget;
 }

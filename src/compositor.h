@@ -68,10 +68,19 @@ void                     compositorUpdateUnredirected           (DisplayInfo *);
 void                     compositorResetGLRenderer              (ScreenInfo *);
 void                     compositorUpdateScreenSize             (ScreenInfo *);
 
+void                     compositorAnimateWindow               (Client *, gboolean restore);
+void                     compositorAnimateOpen                 (Client *);
+void                     compositorAnimateClose                (Client *);
+void                     compositorCancelWindowAnimation       (Client *);
+void                     compositorCancelAnimations            (ScreenInfo *);
+void                     compositorDamageRegion                (ScreenInfo *,
+                                                                 const cairo_rectangle_int_t *);
+
 void                     compositorWindowSetOpacity             (DisplayInfo *,
                                                                  Window,
                                                                  guint32);
 void                     compositorRebuildScreen                (ScreenInfo *);
+void                     compositorSetGlobalScale               (ScreenInfo *, gboolean compensated);
 vblankMode               compositorParseVblankMode              (const gchar *);
 void                     compositorSetVblankMode                (ScreenInfo *,
                                                                  vblankMode);

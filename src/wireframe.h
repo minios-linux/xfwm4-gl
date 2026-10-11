@@ -56,6 +56,8 @@ struct _WireFrame
 void                     wireframeUpdate                        (Client *,
                                                                  WireFrame *);
 WireFrame *              wireframeCreate                        (Client *);
+WireFrame *              wireframeCreateOutline                 (Client *);
+WireFrame *              wireframeCreateWithFill                (Client *, gboolean);
 void                     wireframeDelete                        (WireFrame *);
 
 #endif /* INC_WIREFRAME_H */

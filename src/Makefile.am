@@ -1,9 +1,16 @@
 bin_PROGRAMS = xfwm4
 
 xfwm4_SOURCES =								\
+	animation-math.c						\
+	animation-math.h						\
 	client.c							\
 	client.h							\
 	compositor.c							\
+	compositor-effects.c						\
+	compositor-effects.h						\
+	compositor-xrender-effects.h					\
+	compositor-xrender-effects.c					\
+	compositor-damage.h						\
 	compositor.h							\
 	compositor-gl.c							\
 	compositor-gl.h							\
@@ -25,6 +32,8 @@ xfwm4_SOURCES =								\
 	hints.c								\
 	hints.h								\
 	icons.c								\
+	xfwm-tabwin-preview.h						\
+	xfwm-tabwin-style.h						\
 	icons.h								\
 	keyboard.c							\
 	keyboard.h							\
@@ -121,3 +130,13 @@ AM_CPPFLAGS = 								\
 
 EXTRA_DIST = 								\
 	gen-color-table.pl
+
+# Reuse production objects; only the defaults path differs for isolated checks
+# on builders where the package's data files have not been installed yet.
+check_PROGRAMS = xfwm4-check
+xfwm4_check_SOURCES = settings.c
+xfwm4_check_CFLAGS = $(xfwm4_CFLAGS) -UPACKAGE_DATADIR \
+	-DPACKAGE_DATADIR=\"$(abs_top_srcdir)/defaults\"
+xfwm4_check_LDADD = $(filter-out xfwm4-settings.o,$(xfwm4_OBJECTS)) $(xfwm4_LDADD)
+xfwm4_check_DEPENDENCIES = $(filter-out xfwm4-settings.o,$(xfwm4_OBJECTS)) \
+	$(top_builddir)/common/libxfwm-common.la

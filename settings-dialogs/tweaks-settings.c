@@ -47,6 +47,8 @@
 
 #include "xfwm4-tweaks-dialog_ui.h"
 #include "range-debouncer.h"
+#include "../src/xfwm-tabwin-style.h"
+#include "../src/xfwm-tabwin-preview.h"
 
 static Window opt_socket_id = 0;
 static gboolean opt_version = FALSE;
@@ -204,6 +206,19 @@ read_root_string (Display *dpy, Window root, Atom property)
     return value;
 }
 
+static void cb_minimize_effect_changed (GtkComboBox *, GtkBuilder *);
+
+static void
+minimize_effect_cell (GtkCellLayout *layout, GtkCellRenderer *cell,
+                      GtkTreeModel *model, GtkTreeIter *iter, gpointer data)
+{
+    GtkTreePath *path = gtk_tree_model_get_path (model, iter);
+    gint row = gtk_tree_path_get_indices (path)[0];
+    gboolean gl = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (layout), "backend-is-gl"));
+    g_object_set (cell, "sensitive", row != 2 || gl, NULL);
+    gtk_tree_path_free (path);
+}
+
 static void
 update_render_backend_label (GtkWidget *label)
 {
@@ -267,6 +282,29 @@ update_render_backend_label (GtkWidget *label)
         text = g_strdup (_("(currently off)"));
     }
 
+    {
+        GtkWidget *controls = g_object_get_data (G_OBJECT (label), "minimize-animation-controls");
+        /* A requested GL backend can fall back to XRender. Use the actual
+         * compositor backend, not just the saved use_gl_compositing value. */
+        if (controls)
+        {
+            gtk_widget_set_sensitive (controls, backend &&
+                (g_str_has_prefix (backend, "opengl ") || !strcmp (backend, "xrender")));
+        }
+        controls = g_object_get_data (G_OBJECT (label), "window-animation-controls");
+        if (controls)
+            gtk_widget_set_sensitive (controls, backend &&
+                (g_str_has_prefix (backend, "opengl ") || !strcmp (backend, "xrender")));
+        GtkWidget *combo = g_object_get_data (G_OBJECT (label), "minimize-effect-combo");
+        if (combo)
+        {
+            g_object_set_data (G_OBJECT (combo), "backend-is-gl",
+                               GINT_TO_POINTER (backend && g_str_has_prefix (backend, "opengl ")));
+            cb_minimize_effect_changed (GTK_COMBO_BOX (combo), g_object_get_data (G_OBJECT (combo), "settings-builder"));
+            gtk_widget_queue_draw (combo);
+        }
+    }
+
     g_free (backend);
     g_free (vsync);
 
@@ -295,6 +333,223 @@ render_backend_filter (GdkXEvent *xevent, GdkEvent *event, gpointer data)
 }
 
 static void
+cb_cycle_frame_toggled (GtkToggleButton *frame, GtkWidget *fill)
+{
+    gboolean active = gtk_toggle_button_get_active (frame);
+    if (!active)
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (fill), FALSE);
+    gtk_widget_set_sensitive (fill, active);
+}
+
+static void
+cb_cycle_peek_changed (GtkComboBox *combo, GtkWidget *frame)
+{
+    /* With GL Peek Off, an Alt+Tab selection still needs its native frame. */
+    gboolean may_disable = gtk_combo_box_get_active (combo) > 0;
+    if (!may_disable)
+        gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (frame), TRUE);
+    gtk_widget_set_sensitive (frame, may_disable);
+}
+
+static void
+cb_minimize_effect_changed (GtkComboBox *combo, GtkBuilder *builder)
+{
+    gint effect = gtk_combo_box_get_active (combo);
+    gboolean enabled = effect == 1 ||
+      (effect == 2 && GPOINTER_TO_INT (g_object_get_data (G_OBJECT (combo), "backend-is-gl")));
+    gtk_widget_set_sensitive (GTK_WIDGET (gtk_builder_get_object (builder, "minimize_duration_scale")), enabled);
+    gtk_widget_set_sensitive (GTK_WIDGET (gtk_builder_get_object (builder, "minimize_duration_label")), enabled);
+}
+
+static void
+cb_window_effect_changed (GtkComboBox *combo, GtkBuilder *builder)
+{
+    gboolean enabled = gtk_combo_box_get_active (combo) > 0;
+    gtk_widget_set_sensitive (GTK_WIDGET (gtk_builder_get_object (builder, "window_duration_scale")), enabled);
+    gtk_widget_set_sensitive (GTK_WIDGET (gtk_builder_get_object (builder, "window_duration_label")), enabled);
+}
+
+static void
+cycle_appearance_spin (GtkGrid *grid, XfconfChannel *channel, const gchar *property,
+                       const gchar *text, gint maximum, gint initial, gint row)
+{
+    GtkWidget *label = gtk_label_new_with_mnemonic (text);
+    GtkWidget *spin = gtk_spin_button_new_with_range (0, maximum, 1);
+    if (!strcmp (property, "/general/cycle_preview_width"))
+        gtk_spin_button_set_range (GTK_SPIN_BUTTON (spin), 120, maximum);
+    else if (!strcmp (property, "/general/cycle_preview_height"))
+        gtk_spin_button_set_range (GTK_SPIN_BUTTON (spin), 80, maximum);
+    gtk_label_set_xalign (GTK_LABEL (label), 0.0);
+    gtk_label_set_mnemonic_widget (GTK_LABEL (label), spin);
+    gtk_widget_set_hexpand (spin, TRUE);
+    gtk_spin_button_set_numeric (GTK_SPIN_BUTTON (spin), TRUE);
+    gtk_spin_button_set_value (GTK_SPIN_BUTTON (spin), xfconf_channel_get_int (channel, property, initial));
+    gtk_grid_attach (grid, label, 0, row, 1, 1);
+    gtk_grid_attach (grid, spin, 1, row, 1, 1);
+    xfconf_g_property_bind (channel, property, G_TYPE_INT, G_OBJECT (spin), "value");
+}
+
+static void
+cycle_appearance_color_set (GtkColorButton *button, XfconfChannel *channel)
+{
+    GdkRGBA color;
+    gchar *text;
+    gtk_color_chooser_get_rgba (GTK_COLOR_CHOOSER (button), &color);
+    text = g_strdup_printf ("#%02x%02x%02x", (guint) (255 * color.red + 0.5),
+                            (guint) (255 * color.green + 0.5), (guint) (255 * color.blue + 0.5));
+    const gchar *property = g_object_get_data (G_OBJECT (button), "appearance-color-property");
+    xfconf_channel_set_string (channel, property ? property : "/general/cycle_background_color", text);
+    g_free (text);
+}
+
+static void
+cycle_appearance_color_changed (XfconfChannel *channel, const gchar *property,
+                                const GValue *value, GtkColorButton *button)
+{
+    GdkRGBA color;
+    const gchar *key = g_object_get_data (G_OBJECT (button), "appearance-color-property");
+    if (!strcmp (property, key ? key : "/general/cycle_background_color"))
+    {
+        const gchar *text = G_VALUE_HOLDS_STRING (value) ? g_value_get_string (value) : XFWM_TABWIN_STYLE_COLOR;
+        if (text != NULL && gdk_rgba_parse (&color, text))
+            gtk_color_chooser_set_rgba (GTK_COLOR_CHOOSER (button), &color);
+    }
+}
+
+static void
+reset_settings_clicked (GtkButton *button, XfconfChannel *channel)
+{
+    const gchar *const *properties = g_object_get_data (G_OBJECT (button), "reset-properties");
+    XfceRc *defaults = xfce_rc_simple_open (DATADIR "/xfwm4/defaults", TRUE);
+    if (defaults == NULL)
+    {
+        xfce_dialog_show_error (GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (button))),
+                                NULL, "%s", _("Unable to load default settings"));
+        return;
+    }
+    for (guint i = 0; properties[i] != NULL; i++)
+    {
+        const gchar *value = xfce_rc_read_entry (defaults, properties[i], NULL);
+        gchar *property = g_strconcat ("/general/", properties[i], NULL);
+        if (value != NULL)
+        {
+            if (!strcmp (value, "true") || !strcmp (value, "false"))
+                xfconf_channel_set_bool (channel, property, !strcmp (value, "true"));
+            else
+            {
+                gchar *end;
+                gint64 number = g_ascii_strtoll (value, &end, 10);
+                if (end != value && *end == '\0')
+                    xfconf_channel_set_int (channel, property, number);
+                else
+                    xfconf_channel_set_string (channel, property, value);
+            }
+        }
+        g_free (property);
+    }
+    xfce_rc_close (defaults);
+}
+
+static const gchar *const appearance_properties[] = {
+    "cycle_background_custom", "cycle_background_color", "cycle_background_opacity",
+    "cycle_corner_radius", "cycle_border_width", "cycle_spacing", "cycle_content_padding",
+    "cycle_preview_width", "cycle_preview_height", "cycle_selection_padding",
+    "cycle_selection_custom", "cycle_selection_color", "cycle_selection_radius",
+    "cycle_selection_opacity", NULL
+};
+
+static const gchar *const compositor_properties[] = {
+    "use_compositing", "use_gl_compositing", "suspend_compositing_fullscreen",
+    "unredirect_overlays", "blur_enabled", "blur_docks", "blur_transparent_windows",
+    "blur_previews", "blur_alt_tab", "blur_menus", "blur_tooltips", "blur_notifications",
+    "blur_radius", "blur_strength", "minimize_effect", "minimize_duration",
+    "window_effect", "window_duration", "show_frame_shadow", "show_popup_shadow",
+    "show_dock_shadow", "zoom_desktop", "zoom_pointer", "frame_opacity",
+    "resize_opacity", "move_opacity", "inactive_opacity", "popup_opacity", NULL
+};
+
+static GtkWidget *
+settings_reset_button (XfconfChannel *channel, const gchar *const *properties)
+{
+    GtkWidget *button = gtk_button_new_with_mnemonic (_("_Reset"));
+    g_object_set_data (G_OBJECT (button), "reset-properties", (gpointer) properties);
+    g_signal_connect (button, "clicked", G_CALLBACK (reset_settings_clicked), channel);
+    return button;
+}
+
+static void
+cycle_appearance_clicked (GtkButton *button, XfconfChannel *channel)
+{
+    GtkWidget *parent = gtk_widget_get_toplevel (GTK_WIDGET (button));
+    GtkWidget *dialog = gtk_dialog_new_with_buttons (_("Window switcher appearance"),
+        GTK_IS_WINDOW (parent) ? GTK_WINDOW (parent) : NULL,
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, _("_Close"), GTK_RESPONSE_CLOSE, NULL);
+    GtkWidget *grid = gtk_grid_new ();
+    GtkWidget *reset = settings_reset_button (channel, appearance_properties);
+    gtk_box_pack_start (GTK_BOX (gtk_dialog_get_action_area (GTK_DIALOG (dialog))), reset, FALSE, FALSE, 0);
+    GtkWidget *custom = gtk_check_button_new_with_mnemonic (_("Use _custom background color"));
+    GtkWidget *color_label = gtk_label_new_with_mnemonic (_("Background _color:"));
+    GtkWidget *color_button = gtk_color_button_new ();
+    GdkRGBA color;
+    gchar *text = xfconf_channel_get_string (channel, "/general/cycle_background_color", XFWM_TABWIN_STYLE_COLOR);
+
+    gtk_window_set_resizable (GTK_WINDOW (dialog), FALSE);
+    gtk_container_set_border_width (GTK_CONTAINER (grid), 16);
+    gtk_grid_set_row_spacing (GTK_GRID (grid), 10);
+    gtk_grid_set_column_spacing (GTK_GRID (grid), 14);
+    gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))), grid, TRUE, TRUE, 0);
+    gtk_grid_attach (GTK_GRID (grid), custom, 0, 0, 2, 1);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (custom), xfconf_channel_get_bool (channel, "/general/cycle_background_custom", FALSE));
+    xfconf_g_property_bind (channel, "/general/cycle_background_custom", G_TYPE_BOOLEAN, G_OBJECT (custom), "active");
+    gtk_label_set_xalign (GTK_LABEL (color_label), 0.0);
+    gtk_label_set_mnemonic_widget (GTK_LABEL (color_label), color_button);
+    gtk_color_chooser_set_use_alpha (GTK_COLOR_CHOOSER (color_button), FALSE);
+    if (!gdk_rgba_parse (&color, text))
+        gdk_rgba_parse (&color, XFWM_TABWIN_STYLE_COLOR);
+    gtk_color_chooser_set_rgba (GTK_COLOR_CHOOSER (color_button), &color);
+    g_free (text);
+    gtk_grid_attach (GTK_GRID (grid), color_label, 0, 1, 1, 1);
+    gtk_grid_attach (GTK_GRID (grid), color_button, 1, 1, 1, 1);
+    g_object_bind_property (custom, "active", color_button, "sensitive", G_BINDING_SYNC_CREATE);
+    g_object_bind_property (custom, "active", color_label, "sensitive", G_BINDING_SYNC_CREATE);
+    g_signal_connect (color_button, "color-set", G_CALLBACK (cycle_appearance_color_set), channel);
+    g_signal_connect_object (channel, "property-changed", G_CALLBACK (cycle_appearance_color_changed), color_button, 0);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_background_opacity", _("Background _opacity (%):"), 100, XFWM_TABWIN_STYLE_OPACITY, 2);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_corner_radius", _("Corner _radius (px):"), 36, XFWM_TABWIN_STYLE_RADIUS, 3);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_border_width", _("_Border width (px):"), 5, XFWM_TABWIN_STYLE_BORDER, 4);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_spacing", _("Space between _windows (px):"), 20, XFWM_TABWIN_STYLE_SPACING, 5);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_content_padding", _("_Padding around previews (px):"), 64, XFWM_TABWIN_STYLE_PADDING, 6);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_preview_width", _("Maximum _width (px):"), 800, 300, 7);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_preview_height", _("Maximum _height (px):"), 340, 192, 8);
+    GtkWidget *selection_label = gtk_label_new (NULL);
+    gtk_label_set_markup (GTK_LABEL (selection_label), _("<b>Selection</b>"));
+    gtk_widget_set_halign (selection_label, GTK_ALIGN_START);
+    gtk_grid_attach (GTK_GRID (grid), selection_label, 0, 9, 2, 1);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_selection_padding", _("Selection _padding (px):"), 32, XFWM_TABWIN_PREVIEW_PADDING, 10);
+    GtkWidget *selection_custom = gtk_check_button_new_with_mnemonic (_("Use custom _selection color"));
+    GtkWidget *selection_button = gtk_color_button_new ();
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (selection_custom), xfconf_channel_get_bool (channel, "/general/cycle_selection_custom", FALSE));
+    xfconf_g_property_bind (channel, "/general/cycle_selection_custom", G_TYPE_BOOLEAN, G_OBJECT (selection_custom), "active");
+    gtk_grid_attach (GTK_GRID (grid), selection_custom, 0, 11, 2, 1);
+    gtk_grid_attach (GTK_GRID (grid), gtk_label_new (_("Selection color:")), 0, 12, 1, 1);
+    gtk_grid_attach (GTK_GRID (grid), selection_button, 1, 12, 1, 1);
+    text = xfconf_channel_get_string (channel, "/general/cycle_selection_color", "#398ee7");
+    if (!gdk_rgba_parse (&color, text)) gdk_rgba_parse (&color, "#398ee7");
+    gtk_color_chooser_set_rgba (GTK_COLOR_CHOOSER (selection_button), &color);
+    gtk_color_chooser_set_use_alpha (GTK_COLOR_CHOOSER (selection_button), FALSE);
+    g_free (text);
+    g_object_set_data (G_OBJECT (selection_button), "appearance-color-property", "/general/cycle_selection_color");
+    g_signal_connect (selection_button, "color-set", G_CALLBACK (cycle_appearance_color_set), channel);
+    g_signal_connect_object (channel, "property-changed", G_CALLBACK (cycle_appearance_color_changed), selection_button, 0);
+    g_object_bind_property (selection_custom, "active", selection_button, "sensitive", G_BINDING_SYNC_CREATE);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_selection_radius", _("Selection corner radius (px):"), 36, XFWM_TABWIN_SELECTION_RADIUS, 13);
+    cycle_appearance_spin (GTK_GRID (grid), channel, "/general/cycle_selection_opacity", _("Selection opacity (%):"), 100, XFWM_TABWIN_SELECTION_OPACITY, 14);
+    gtk_widget_show_all (dialog);
+    gtk_dialog_run (GTK_DIALOG (dialog));
+    gtk_widget_destroy (dialog);
+}
+
+static void
 wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
 {
     GtkWidget *vbox;
@@ -314,8 +569,11 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
     GtkWidget *cycle_minimum_check = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_minimum_check"));
     GtkWidget *cycle_minimized_check = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_minimized_check"));
     GtkWidget *cycle_draw_frame = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_draw_frame"));
+    GtkWidget *cycle_frame_fill = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_frame_fill"));
     GtkWidget *cycle_raise = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_raise"));
     GtkWidget *cycle_tabwin_mode = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_tabwin_mode"));
+    GtkWidget *cycle_peek_combo = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_peek_combo"));
+    GtkWidget *cycle_peek_opacity_scale = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_peek_opacity_scale"));
 
     /* Focus tab */
     GtkWidget *prevent_focus_stealing_check = GTK_WIDGET (gtk_builder_get_object (builder, "prevent_focus_stealing_check"));
@@ -354,6 +612,24 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
     GtkWidget *render_backend_label = GTK_WIDGET (gtk_builder_get_object (builder, "render_backend_label"));
     GtkWidget *suspend_compositing_fullscreen_check = GTK_WIDGET (gtk_builder_get_object (builder, "suspend_compositing_fullscreen_check"));
     GtkWidget *use_gl_compositing_check = GTK_WIDGET (gtk_builder_get_object (builder, "use_gl_compositing_check"));
+    GtkWidget *minimize_animation_controls = GTK_WIDGET (gtk_builder_get_object (builder, "minimize_animation_controls"));
+    GtkWidget *window_animation_controls = GTK_WIDGET (gtk_builder_get_object (builder, "window_animation_controls"));
+    GtkWidget *window_effect_combo = GTK_WIDGET (gtk_builder_get_object (builder, "window_effect_combo"));
+    GtkWidget *window_duration_scale = GTK_WIDGET (gtk_builder_get_object (builder, "window_duration_scale"));
+    GtkWidget *minimize_effect_combo = GTK_WIDGET (gtk_builder_get_object (builder, "minimize_effect_combo"));
+    GtkWidget *minimize_duration_scale = GTK_WIDGET (gtk_builder_get_object (builder, "minimize_duration_scale"));
+    GtkWidget *blur_enabled_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_enabled_check"));
+    GtkWidget *blur_docks_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_docks_check"));
+    GtkWidget *blur_transparent_windows_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_transparent_windows_check"));
+    GtkWidget *blur_previews_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_previews_check"));
+    GtkWidget *blur_alt_tab_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_alt_tab_check"));
+    GtkWidget *blur_menus_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_menus_check"));
+    GtkWidget *blur_tooltips_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_tooltips_check"));
+    GtkWidget *blur_notifications_check = GTK_WIDGET (gtk_builder_get_object (builder, "blur_notifications_check"));
+    GtkWidget *blur_radius_scale = GTK_WIDGET (gtk_builder_get_object (builder, "blur_radius_scale"));
+    GtkWidget *blur_radius_label = GTK_WIDGET (gtk_builder_get_object (builder, "blur_radius_label"));
+    GtkWidget *blur_strength_scale = GTK_WIDGET (gtk_builder_get_object (builder, "blur_strength_scale"));
+    GtkWidget *blur_strength_label = GTK_WIDGET (gtk_builder_get_object (builder, "blur_strength_label"));
     GtkWidget *unredirect_overlays_check = GTK_WIDGET (gtk_builder_get_object (builder, "unredirect_overlays_check"));
     GtkWidget *cycle_preview_check = GTK_WIDGET (gtk_builder_get_object (builder, "cycle_preview_check"));
     GtkWidget *show_frame_shadow_check = GTK_WIDGET (gtk_builder_get_object (builder, "show_frame_shadow_check"));
@@ -472,6 +748,12 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                             "/general/cycle_draw_frame",
                             G_TYPE_BOOLEAN,
                             (GObject *)cycle_draw_frame, "active");
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/cycle_frame_fill"))
+        xfconf_channel_set_bool (xfwm4_channel, "/general/cycle_frame_fill", FALSE);
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/cycle_frame_fill",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)cycle_frame_fill, "active");
     xfconf_g_property_bind (xfwm4_channel,
                             "/general/cycle_raise",
                             G_TYPE_BOOLEAN,
@@ -480,6 +762,30 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                             "/general/cycle_tabwin_mode",
                             G_TYPE_INT,
                             (GObject *)cycle_tabwin_mode, "active");
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/cycle_peek_mode"))
+        xfconf_channel_set_int (xfwm4_channel, "/general/cycle_peek_mode", 1);
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/cycle_peek_opacity"))
+        xfconf_channel_set_int (xfwm4_channel, "/general/cycle_peek_opacity", 15);
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/cycle_peek_mode",
+                            G_TYPE_INT,
+                            (GObject *)cycle_peek_combo, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/cycle_peek_opacity",
+                            G_TYPE_INT,
+                            (GObject *)range_debouncer_bind (GTK_RANGE (cycle_peek_opacity_scale)), "value");
+    g_object_bind_property (use_compositing_check, "active",
+                             cycle_peek_combo, "sensitive", G_BINDING_SYNC_CREATE);
+    g_object_bind_property (use_compositing_check, "active",
+                             cycle_peek_opacity_scale, "sensitive", G_BINDING_SYNC_CREATE);
+    g_signal_connect (cycle_draw_frame, "toggled",
+                      G_CALLBACK (cb_cycle_frame_toggled), cycle_frame_fill);
+    g_signal_connect (cycle_peek_combo, "changed",
+                      G_CALLBACK (cb_cycle_peek_changed), cycle_draw_frame);
+    cb_cycle_frame_toggled (GTK_TOGGLE_BUTTON (cycle_draw_frame), cycle_frame_fill);
+    cb_cycle_peek_changed (GTK_COMBO_BOX (cycle_peek_combo), cycle_draw_frame);
+    g_signal_connect (gtk_builder_get_object (builder, "cycle_appearance_button"), "clicked",
+                       G_CALLBACK (cycle_appearance_clicked), xfwm4_channel);
 
     /* Focus tab */
     xfconf_g_property_bind (xfwm4_channel,
@@ -567,9 +873,117 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                             G_TYPE_BOOLEAN,
                             (GObject *)use_gl_compositing_check, "active");
     xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_enabled",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_enabled_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_docks",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_docks_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_transparent_windows",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_transparent_windows_check, "active");
+    /* GTK check buttons default to FALSE if an xfconf key is absent.
+     * Preserve the compositor's TRUE default for existing Xfce profiles. */
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/blur_previews"))
+        xfconf_channel_set_bool (xfwm4_channel, "/general/blur_previews", TRUE);
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_previews",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_previews_check, "active");
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/blur_alt_tab"))
+        xfconf_channel_set_bool (xfwm4_channel, "/general/blur_alt_tab", TRUE);
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_alt_tab",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_alt_tab_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_menus",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_menus_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_tooltips",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_tooltips_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_notifications",
+                            G_TYPE_BOOLEAN,
+                            (GObject *)blur_notifications_check, "active");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_radius",
+                            G_TYPE_INT,
+                            (GObject *)range_debouncer_bind (GTK_RANGE (blur_radius_scale)), "value");
+    xfconf_g_property_bind (xfwm4_channel,
+                            "/general/blur_strength",
+                            G_TYPE_INT,
+                            (GObject *)range_debouncer_bind (GTK_RANGE (blur_strength_scale)), "value");
+
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_docks_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_transparent_windows_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_previews_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_alt_tab_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_menus_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_tooltips_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_notifications_check, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_radius_scale, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_radius_label, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_strength_scale, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    g_object_bind_property (blur_enabled_check, "active",
+                            blur_strength_label, "sensitive",
+                            G_BINDING_SYNC_CREATE);
+    xfconf_g_property_bind (xfwm4_channel,
                             "/general/unredirect_overlays",
                             G_TYPE_BOOLEAN,
                             (GObject *)unredirect_overlays_check, "active");
+
+    xfconf_g_property_bind (xfwm4_channel, "/general/minimize_effect", G_TYPE_INT,
+                            G_OBJECT (minimize_effect_combo), "active");
+    xfconf_g_property_bind (xfwm4_channel, "/general/minimize_duration", G_TYPE_INT,
+                            G_OBJECT (range_debouncer_bind (GTK_RANGE (minimize_duration_scale))), "value");
+    g_signal_connect (minimize_effect_combo, "changed",
+                      G_CALLBACK (cb_minimize_effect_changed), builder);
+    cb_minimize_effect_changed (GTK_COMBO_BOX (minimize_effect_combo), builder);
+    g_object_set_data (G_OBJECT (minimize_effect_combo), "settings-builder", builder);
+    g_object_set_data (G_OBJECT (render_backend_label), "minimize-effect-combo", minimize_effect_combo);
+    GList *cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (minimize_effect_combo));
+    for (GList *li = cells; li; li = li->next)
+        gtk_cell_layout_set_cell_data_func (GTK_CELL_LAYOUT (minimize_effect_combo), li->data,
+                                            minimize_effect_cell, NULL, NULL);
+    g_list_free (cells);
+    g_object_set_data (G_OBJECT (render_backend_label), "minimize-animation-controls",
+                       minimize_animation_controls);
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/window_effect"))
+        xfconf_channel_set_int (xfwm4_channel, "/general/window_effect", 1);
+    if (!xfconf_channel_has_property (xfwm4_channel, "/general/window_duration"))
+        xfconf_channel_set_int (xfwm4_channel, "/general/window_duration", 160);
+    xfconf_g_property_bind (xfwm4_channel, "/general/window_effect", G_TYPE_INT,
+                            G_OBJECT (window_effect_combo), "active");
+    xfconf_g_property_bind (xfwm4_channel, "/general/window_duration", G_TYPE_INT,
+                            G_OBJECT (range_debouncer_bind (GTK_RANGE (window_duration_scale))), "value");
+    g_signal_connect (window_effect_combo, "changed", G_CALLBACK (cb_window_effect_changed), builder);
+    cb_window_effect_changed (GTK_COMBO_BOX (window_effect_combo), builder);
+    g_object_set_data (G_OBJECT (render_backend_label), "window-animation-controls", window_animation_controls);
 
     {
         GdkWindow *root_window = gdk_get_default_root_window ();
@@ -624,6 +1038,11 @@ wm_tweaks_dialog_configure_widgets (GtkBuilder *builder)
                             G_TYPE_INT,
                             (GObject *) range_debouncer_bind (GTK_RANGE (popup_opacity_scale)), "value");
 
+    {
+        GtkWidget *reset = settings_reset_button (xfwm4_channel, compositor_properties);
+        gtk_widget_set_halign (reset, GTK_ALIGN_END);
+        gtk_box_pack_end (GTK_BOX (gtk_builder_get_object (builder, "vbox7")), reset, FALSE, FALSE, 0);
+    }
     vbox = GTK_WIDGET (gtk_builder_get_object (builder, "main-vbox"));
     gtk_widget_show_all (vbox);
 

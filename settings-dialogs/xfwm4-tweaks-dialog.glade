@@ -39,6 +39,40 @@
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
+  <object class="GtkAdjustment" id="cycle_peek_opacity_adjustment">
+    <property name="upper">100</property>
+    <property name="value">15</property>
+    <property name="step_increment">5</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="blur_radius_adjustment">
+    <property name="lower">1</property>
+    <property name="upper">64</property>
+    <property name="value">18</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">4</property>
+  </object>
+  <object class="GtkAdjustment" id="blur_strength_adjustment">
+    <property name="lower">0</property>
+    <property name="upper">100</property>
+    <property name="value">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="minimize_duration_adjustment">
+    <property name="lower">50</property>
+    <property name="upper">1000</property>
+    <property name="value">180</property>
+    <property name="step_increment">10</property>
+    <property name="page_increment">50</property>
+  </object>
+  <object class="GtkAdjustment" id="window_duration_adjustment">
+    <property name="lower">50</property>
+    <property name="upper">1000</property>
+    <property name="value">160</property>
+    <property name="step_increment">10</property>
+    <property name="page_increment">50</property>
+  </object>
   <object class="GtkImage" id="image1">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -185,22 +219,6 @@ or "skip taskbar" properties set</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="cycle_draw_frame">
-                    <property name="label" translatable="yes">_Draw frame around selected window while cycling</property>
-                    <property name="use_action_appearance">False</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">False</property>
-                    <property name="use_underline">True</property>
-                    <property name="draw_indicator">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="fill">False</property>
-                    <property name="position">4</property>
-                  </packing>
-                </child>
-                <child>
                   <object class="GtkCheckButton" id="cycle_raise">
                     <property name="label" translatable="yes">_Raise windows while cycling</property>
                     <property name="use_action_appearance">False</property>
@@ -230,6 +248,21 @@ or "skip taskbar" properties set</property>
                     <property name="expand">False</property>
                     <property name="fill">False</property>
                     <property name="position">6</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="cycle_appearance_button">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">_Appearance...</property>
+                    <property name="halign">start</property>
+                    <property name="margin_top">6</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">False</property>
+                    <property name="position">7</property>
                   </packing>
                 </child>
               </object>
@@ -955,6 +988,400 @@ when switching via keyboard shortcuts</property>
                                   </packing>
                                 </child>
                                 <child>
+                                  <object class="GtkCheckButton" id="blur_enabled_check">
+                                    <property name="label" translatable="yes">Enable background _blur</property>
+                                    <property name="tooltip_text" translatable="yes">Blur the background behind translucent panels and windows when using the OpenGL compositor</property>
+                                    <property name="use_action_appearance">False</property>
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="receives_default">False</property>
+                                    <property name="use_underline">True</property>
+                                    <property name="draw_indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">1</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkGrid" id="blur_window_types_grid">
+                                    <property name="visible">True</property>
+                                    <property name="column_spacing">12</property>
+                                    <property name="row_spacing">0</property>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_docks_check">
+                                        <property name="label" translatable="yes">Blur _panels and dock windows</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">0</property>
+                                        <property name="top_attach">0</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_transparent_windows_check">
+                                        <property name="label" translatable="yes">Blur _transparent windows</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">1</property>
+                                        <property name="top_attach">0</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_previews_check">
+                                        <property name="label" translatable="yes">Blur taskbar _previews</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">0</property>
+                                        <property name="top_attach">1</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_menus_check">
+                                        <property name="label" translatable="yes">Blur popup _menus</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">1</property>
+                                        <property name="top_attach">1</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_tooltips_check">
+                                        <property name="label" translatable="yes">Blur _tooltips</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">0</property>
+                                        <property name="top_attach">2</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_notifications_check">
+                                        <property name="label" translatable="yes">Blur _notifications</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">1</property>
+                                        <property name="top_attach">2</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkCheckButton" id="blur_alt_tab_check">
+                                        <property name="label" translatable="yes">Blur _window switcher background</property>
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="draw_indicator">True</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left_attach">0</property>
+                                        <property name="top_attach">3</property>
+                                      </packing>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">2</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkBox" id="blur_radius_box">
+                                    <property name="visible">True</property>
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">8</property>
+                                    <child>
+                                      <object class="GtkLabel" id="blur_radius_label">
+                                        <property name="visible">True</property>
+                                        <property name="label" translatable="yes">Blur _radius:</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="mnemonic_widget">blur_radius_scale</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkScale" id="blur_radius_scale">
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="hexpand">True</property>
+                                        <property name="orientation">horizontal</property>
+                                        <property name="adjustment">blur_radius_adjustment</property>
+                                        <property name="digits">0</property>
+                                        <property name="draw_value">True</property>
+                                        <property name="value_pos">right</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">4</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkBox" id="blur_strength_box">
+                                    <property name="visible">True</property>
+                                    <property name="orientation">horizontal</property>
+                                    <property name="spacing">8</property>
+                                    <child>
+                                      <object class="GtkLabel" id="blur_strength_label">
+                                        <property name="visible">True</property>
+                                        <property name="label" translatable="yes">Blur _strength:</property>
+                                        <property name="use_underline">True</property>
+                                        <property name="mnemonic_widget">blur_strength_scale</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkScale" id="blur_strength_scale">
+                                        <property name="visible">True</property>
+                                        <property name="can_focus">True</property>
+                                        <property name="hexpand">True</property>
+                                        <property name="orientation">horizontal</property>
+                                        <property name="adjustment">blur_strength_adjustment</property>
+                                        <property name="digits">0</property>
+                                        <property name="draw_value">True</property>
+                                        <property name="value_pos">right</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">5</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkFrame" id="cycle_peek_effects_frame">
+                                    <property name="visible">True</property>
+                                    <property name="label" translatable="yes">Window switcher</property>
+                                    <property name="margin_top">6</property>
+                                    <property name="margin_bottom">6</property>
+                                  <child>
+                                    <object class="GtkGrid" id="cycle_peek_controls">
+                                      <property name="visible">True</property>
+                                      <property name="column_spacing">10</property>
+                                      <property name="row_spacing">6</property>
+                                      <child>
+                                        <object class="GtkLabel" id="cycle_peek_label">
+                                          <property name="visible">True</property>
+                                          <property name="label" translatable="yes">Window switcher _visual effect:</property>
+                                          <property name="use_underline">True</property>
+                                          <property name="mnemonic_widget">cycle_peek_combo</property>
+                                          <property name="xalign">0</property>
+                                        </object>
+                                        <packing><property name="left_attach">0</property><property name="top_attach">0</property></packing>
+                                      </child>
+                                      <child>
+                                        <object class="GtkComboBoxText" id="cycle_peek_combo">
+                                          <property name="visible">True</property>
+                                          <property name="hexpand">True</property>
+                                          <property name="tooltip_text" translatable="yes">Use compositor-only Peek with OpenGL or XRender. Without compositing, use the original window frame.</property>
+                                          <items>
+                                            <item translatable="yes">Off</item>
+                                            <item translatable="yes">Dim other windows</item>
+                                            <item translatable="yes">Hide other windows</item>
+                                          </items>
+                                        </object>
+                                        <packing><property name="left_attach">1</property><property name="top_attach">0</property></packing>
+                                      </child>
+                                      <child>
+                                        <object class="GtkLabel" id="cycle_peek_opacity_label">
+                                          <property name="visible">True</property>
+                                          <property name="label" translatable="yes">Other windows _opacity (%):</property>
+                                          <property name="use_underline">True</property>
+                                          <property name="mnemonic_widget">cycle_peek_opacity_scale</property>
+                                          <property name="xalign">0</property>
+                                        </object>
+                                        <packing><property name="left_attach">0</property><property name="top_attach">1</property></packing>
+                                      </child>
+                                      <child>
+                                        <object class="GtkScale" id="cycle_peek_opacity_scale">
+                                          <property name="visible">True</property>
+                                          <property name="hexpand">True</property>
+                                          <property name="orientation">horizontal</property>
+                                          <property name="adjustment">cycle_peek_opacity_adjustment</property>
+                                          <property name="digits">0</property>
+                                          <property name="value_pos">right</property>
+                                        </object>
+                                        <packing><property name="left_attach">1</property><property name="top_attach">1</property></packing>
+                                      </child>
+                                      <child>
+                                        <object class="GtkCheckButton" id="cycle_draw_frame">
+                                          <property name="visible">True</property>
+                                          <property name="can_focus">True</property>
+                                          <property name="use_underline">True</property>
+                                          <property name="label" translatable="yes">Draw _frame around selected window</property>
+                                        </object>
+                                        <packing><property name="left_attach">0</property><property name="top_attach">2</property><property name="width">2</property></packing>
+                                      </child>
+                                      <child>
+                                        <object class="GtkCheckButton" id="cycle_frame_fill">
+                                          <property name="visible">True</property>
+                                          <property name="can_focus">True</property>
+                                          <property name="use_underline">True</property>
+                                          <property name="label" translatable="yes">_Highlight inside frame</property>
+                                        </object>
+                                        <packing><property name="left_attach">0</property><property name="top_attach">3</property><property name="width">2</property></packing>
+                                      </child>
+                                    </object>
+                                  </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">6</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkFrame" id="minimize_animation_controls">
+                                    <property name="visible">True</property>
+                                    <property name="label" translatable="yes">Minimize and restore</property>
+                                    <property name="tooltip_text" translatable="yes">Scale + Fade works with OpenGL and XRender. Magic Lamp requires OpenGL. Without compositing, windows are minimized and restored without animation.</property>
+                                    <property name="margin_top">6</property>
+                                    <property name="margin_bottom">6</property>
+                                    <child>
+                                      <object class="GtkGrid" id="minimize_animation_grid">
+                                        <property name="visible">True</property>
+                                        <property name="margin">8</property>
+                                        <property name="column_spacing">12</property>
+                                        <property name="row_spacing">6</property>
+                                        <child>
+                                          <object class="GtkLabel" id="minimize_effect_label">
+                                            <property name="visible">True</property>
+                                            <property name="xalign">0</property>
+                                            <property name="label" translatable="yes">Minimize _effect:</property>
+                                            <property name="use_underline">True</property>
+                                            <property name="mnemonic_widget">minimize_effect_combo</property>
+                                          </object>
+                                          <packing><property name="left_attach">0</property><property name="top_attach">0</property></packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkComboBoxText" id="minimize_effect_combo">
+                                            <property name="visible">True</property>
+                                            <property name="hexpand">True</property>
+                                            <property name="active">1</property>
+                                            <items>
+                                              <item translatable="yes">None</item>
+                                              <item translatable="yes">Scale + Fade</item>
+                                              <item translatable="yes">Magic Lamp</item>
+                                            </items>
+                                          </object>
+                                          <packing><property name="left_attach">1</property><property name="top_attach">0</property></packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkLabel" id="minimize_duration_label">
+                                            <property name="visible">True</property>
+                                            <property name="xalign">0</property>
+                                            <property name="label" translatable="yes">D_uration (ms):</property>
+                                            <property name="use_underline">True</property>
+                                            <property name="mnemonic_widget">minimize_duration_scale</property>
+                                          </object>
+                                          <packing><property name="left_attach">0</property><property name="top_attach">1</property></packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkScale" id="minimize_duration_scale">
+                                            <property name="visible">True</property>
+                                            <property name="can_focus">True</property>
+                                            <property name="hexpand">True</property>
+                                            <property name="orientation">horizontal</property>
+                                            <property name="adjustment">minimize_duration_adjustment</property>
+                                            <property name="digits">0</property>
+                                            <property name="draw_value">True</property>
+                                            <property name="value_pos">right</property>
+                                          </object>
+                                          <packing><property name="left_attach">1</property><property name="top_attach">1</property></packing>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">True</property>
+                                    <property name="position">6</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkFrame" id="window_animation_controls">
+                                    <property name="visible">True</property>
+                                    <property name="label" translatable="yes">Open and close</property>
+                                    <property name="tooltip_text" translatable="yes">Works with OpenGL and XRender. Without compositing, windows open and close without animation.</property>
+                                    <property name="margin_top">6</property>
+                                    <property name="margin_bottom">6</property>
+                                    <child>
+                                      <object class="GtkGrid" id="window_animation_grid">
+                                        <property name="visible">True</property>
+                                        <property name="margin">8</property>
+                                        <property name="column_spacing">12</property>
+                                        <property name="row_spacing">6</property>
+                                        <child>
+                                          <object class="GtkLabel" id="window_effect_label">
+                                            <property name="visible">True</property>
+                                            <property name="xalign">0</property>
+                                            <property name="label" translatable="yes">Window _effect:</property>
+                                            <property name="use_underline">True</property>
+                                            <property name="mnemonic_widget">window_effect_combo</property>
+                                          </object>
+                                          <packing><property name="left_attach">0</property><property name="top_attach">0</property></packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkComboBoxText" id="window_effect_combo">
+                                            <property name="visible">True</property>
+                                            <property name="hexpand">True</property>
+                                            <items>
+                                              <item translatable="yes">None</item>
+                                              <item translatable="yes">Scale + Fade</item>
+                                              <item translatable="yes">Fade</item>
+                                            </items>
+                                          </object>
+                                          <packing><property name="left_attach">1</property><property name="top_attach">0</property></packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkLabel" id="window_duration_label">
+                                            <property name="visible">True</property>
+                                            <property name="xalign">0</property>
+                                            <property name="label" translatable="yes">D_uration (ms):</property>
+                                            <property name="use_underline">True</property>
+                                            <property name="mnemonic_widget">window_duration_scale</property>
+                                          </object>
+                                          <packing><property name="left_attach">0</property><property name="top_attach">1</property></packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkScale" id="window_duration_scale">
+                                            <property name="visible">True</property>
+                                            <property name="hexpand">True</property>
+                                            <property name="adjustment">window_duration_adjustment</property>
+                                            <property name="digits">0</property>
+                                            <property name="value_pos">right</property>
+                                          </object>
+                                          <packing><property name="left_attach">1</property><property name="top_attach">1</property></packing>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                  <packing><property name="expand">False</property><property name="fill">True</property><property name="position">7</property></packing>
+                                </child>
+                                <child>
                                   <object class="GtkCheckButton" id="suspend_compositing_fullscreen_check">
                                     <property name="label" translatable="yes">_Suspend compositing for focused fullscreen windows</property>
                                     <property name="tooltip_text" translatable="yes">Improves performance in fullscreen applications; compositing resumes when the window closes or loses focus. Video may tear while it is off</property>
@@ -968,7 +1395,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">1</property>
+                                    <property name="position">7</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -985,7 +1412,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">2</property>
+                                    <property name="position">8</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1001,7 +1428,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">3</property>
+                                    <property name="position">9</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1017,7 +1444,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">4</property>
+                                    <property name="position">10</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1033,7 +1460,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">5</property>
+                                    <property name="position">11</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1049,7 +1476,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">6</property>
+                                    <property name="position">12</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1065,7 +1492,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">7</property>
+                                    <property name="position">13</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1081,7 +1508,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">8</property>
+                                    <property name="position">14</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1096,7 +1523,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">True</property>
-                                    <property name="position">9</property>
+                                    <property name="position">15</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1157,7 +1584,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">10</property>
+                                    <property name="position">16</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1172,7 +1599,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">11</property>
+                                    <property name="position">17</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1233,7 +1660,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">12</property>
+                                    <property name="position">18</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1248,7 +1675,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">13</property>
+                                    <property name="position">19</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1309,7 +1736,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">14</property>
+                                    <property name="position">20</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1324,7 +1751,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">15</property>
+                                    <property name="position">21</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1385,7 +1812,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">16</property>
+                                    <property name="position">22</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1400,7 +1827,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">17</property>
+                                    <property name="position">23</property>
                                   </packing>
                                 </child>
                                 <child>
@@ -1461,7 +1888,7 @@ when switching via keyboard shortcuts</property>
                                   <packing>
                                     <property name="expand">False</property>
                                     <property name="fill">False</property>
-                                    <property name="position">18</property>
+                                    <property name="position">24</property>
                                   </packing>
                                 </child>
                               </object>

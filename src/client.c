@@ -28,6 +28,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <math.h>
 
 #include <X11/X.h>
 #include <X11/Xlib.h>
@@ -2085,6 +2086,10 @@ clientFrame (DisplayInfo *display_info, Window w, gboolean recapture)
     DBG ("client \"%s\" (0x%lx) is now managed", c->name, c->window);
     DBG ("client_count=%d", screen_info->client_count);
 
+    if (!recapture && FLAG_TEST (c->xfwm_flags, XFWM_FLAG_VISIBLE) &&
+        !FLAG_TEST (c->flags, CLIENT_FLAG_ICONIFIED))
+        compositorAnimateOpen (c);
+
 out:
     /* Window is reparented now, so we can safely release the grab
      * on the server
@@ -2112,6 +2117,8 @@ clientUnframe (Client *c, gboolean remap)
     screen_info = c->screen_info;
     display_info = screen_info->display_info;
 
+    if (!remap)
+        compositorAnimateClose (c);
     clientRemoveFromList (c);
     compositorSetClient (display_info, c->frame, NULL);
 
@@ -2421,6 +2428,11 @@ clientShowSingle (Client *c, gboolean deiconify)
     if ((c->win_workspace == screen_info->current_ws) || FLAG_TEST (c->flags, CLIENT_FLAG_STICKY))
     {
         TRACE ("showing client \"%s\" (0x%lx)", c->name, c->window);
+        if (deiconify && FLAG_TEST (c->flags, CLIENT_FLAG_ICONIFIED) &&
+            !screen_info->show_desktop)
+        {
+            compositorAnimateWindow (c, TRUE);
+        }
         FLAG_SET (c->xfwm_flags, XFWM_FLAG_VISIBLE);
         myDisplayErrorTrapPush (display_info);
         XMapWindow (display_info->dpy, c->frame);
@@ -2483,6 +2495,17 @@ clientWithdrawSingle (Client *c, GList *exclude_list, gboolean iconify)
 
     screen_info = c->screen_info;
     display_info = screen_info->display_info;
+
+    if (iconify && FLAG_TEST (c->xfwm_flags, XFWM_FLAG_VISIBLE) &&
+        !FLAG_TEST (c->flags, CLIENT_FLAG_ICONIFIED) && !screen_info->show_desktop)
+    {
+        /* Capture before focus/opacity changes and before XUnmapWindow. */
+        compositorAnimateWindow (c, FALSE);
+    }
+    else if (!iconify || screen_info->show_desktop)
+    {
+        compositorCancelWindowAnimation (c);
+    }
 
     clientPassFocus(c->screen_info, c, exclude_list);
     if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_VISIBLE))
@@ -4044,6 +4067,77 @@ clientIncOpacity (Client *c)
     }
 }
 
+gboolean
+clientUpdateGlobalScale (ScreenInfo *screen_info)
+{
+    Display *dpy = screen_info->display_info->dpy;
+    Atom type;
+    int format;
+    unsigned long count, remaining;
+    unsigned char *data = NULL;
+    double compensation = 1.0;
+    double ratio;
+    Client *c;
+    guint i;
+
+    if (XGetWindowProperty (dpy, screen_info->xroot,
+                           XInternAtom (dpy, "_XFCE_GLOBAL_SCALE_COMPENSATION", False),
+                           0, 1, False, XA_CARDINAL, &type, &format, &count,
+                           &remaining, &data) == Success
+        && type == XA_CARDINAL && format == 32 && count == 1)
+        compensation = (double) *(unsigned long *) data / 65536.0;
+    if (data != NULL)
+        XFree (data);
+    if (compensation < 1.0 || compensation > 2.0)
+        compensation = 1.0;
+    if (screen_info->global_scale_compensation == 0.0)
+    {
+        screen_info->global_scale_compensation = compensation;
+        return FALSE;
+    }
+    ratio = compensation / screen_info->global_scale_compensation;
+    if (fabs (ratio - 1.0) < 0.000001)
+        return FALSE;
+    screen_info->global_scale_compensation = compensation;
+    compositorSetGlobalScale (screen_info, compensation != 1.0);
+    compositorCancelAnimations (screen_info);
+
+    /* CRTC origins and framebuffer coordinates change together. Map window
+     * anchors and restore geometry into the new space before ordinary RandR
+     * relayout can move windows onto a different monitor. Toolkits own their
+     * client-area resize; this only preserves physical frame positions. */
+    for (c = screen_info->clients, i = 0; i < screen_info->client_count; c = c->next, i++)
+    {
+        XWindowChanges wc;
+        gint left, top;
+        GdkRectangle *saved[] = { &c->saved_geometry, &c->pre_fullscreen_geometry, &c->applied_geometry };
+        if (!CONSTRAINED_WINDOW (c))
+            continue;
+        left = frameLeft (c);
+        top = frameTop (c);
+        for (guint n = 0; n < G_N_ELEMENTS (saved); n++)
+        {
+            saved[n]->x = round ((saved[n]->x - left) * ratio) + left;
+            saved[n]->y = round ((saved[n]->y - top) * ratio) + top;
+            saved[n]->width = round (saved[n]->width * ratio);
+            saved[n]->height = round (saved[n]->height * ratio);
+        }
+        if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_SAVED_POS))
+        {
+            c->pre_relayout_x = round ((c->pre_relayout_x - left) * ratio) + left;
+            c->pre_relayout_y = round ((c->pre_relayout_y - top) * ratio) + top;
+        }
+        if (FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+            || FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED)
+            || c->tile_mode != TILE_NONE)
+            continue;
+        wc.x = round ((c->x - left) * ratio) + left;
+        wc.y = round ((c->y - top) * ratio) + top;
+        clientConfigure (c, &wc, CWX | CWY, CFG_REQUEST | CFG_FORCE_REDRAW);
+    }
+    return TRUE;
+}
+
 /* Xrandr stuff: on screen size change, make sure all clients are still visible */
 void
 clientScreenResize(ScreenInfo *screen_info, gboolean fully_visible, gboolean relayout)
@@ -4052,6 +4146,9 @@ clientScreenResize(ScreenInfo *screen_info, gboolean fully_visible, gboolean rel
     GList *list, *list_of_windows;
     XWindowChanges wc;
     unsigned short configure_flags;
+
+    if (clientUpdateGlobalScale (screen_info))
+        relayout = FALSE;
 
     list_of_windows = clientGetStackList (screen_info);
 

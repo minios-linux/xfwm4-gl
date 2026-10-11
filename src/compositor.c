@@ -70,6 +70,9 @@
 
 #include "compositor-priv.h"
 #include "compositor-gl.h"
+#include "compositor-effects.h"
+#include "compositor-xrender-effects.h"
+#include "wireframe.h"
 
 static CWindow*
 find_cwindow_in_screen (ScreenInfo *screen_info, Window id)
@@ -769,7 +772,9 @@ drop_win_shadow (CWindow *cw)
         XRenderFreePicture (cw->screen_info->display_info->dpy, cw->shadow);
         cw->shadow = None;
     }
+    cw->xr_snapshot_dirty = TRUE;
 #ifdef HAVE_EPOXY
+    cw->gl_close_snapshot_dirty = TRUE;
     xfwmGLFreeWindowShadow (cw);
 #endif /* HAVE_EPOXY */
     cw->shadow_width = 0;
@@ -804,8 +809,17 @@ free_win_data (CWindow *cw, gboolean delete)
     display_info = screen_info->display_info;
 
     myDisplayErrorTrapPush (display_info);
+    if (delete) xfwmXRFreeWindow (cw);
+    else xfwmXRFreeClose (cw);
 #ifdef HAVE_EPOXY
+    /* A minimize snapshot is independent of the X pixmap and survives unmap,
+     * but must never outlive the CWindow or the GL context. */
+    if (delete)
+    {
+        xfwmGLCancelWindowAnimation (cw);
+    }
     xfwmGLFreeWindowData (cw);
+    xfwmGLFreeCloseSnapshot (cw);
 #endif /* HAVE_EPOXY */
 #if HAVE_NAME_WINDOW_PIXMAP
     if (cw->name_window_pixmap)
@@ -2283,13 +2297,16 @@ ensure_win_shadow (CWindow *cw)
        We apply a shadow to the window if:
        - It's a window with a frame and the user asked for shadows under regular
          windows,
-       - it's an override redirect window that is not shaped, not an argb and
-         the user asked for shadows on so called "popup" windows.
+       - it's an override redirect window and the user asked for popup shadows.
+         Known preview surfaces can be ARGB; other popups retain the original
+         non-ARGB, unshaped restriction.
      */
 
     if ((screen_info->params->show_popup_shadow &&
               WIN_IS_OVERRIDE(cw) &&
-              !(WIN_IS_ARGB(cw) || WIN_IS_SHAPED(cw)) &&
+              (cw->blur_type == XFWM_BLUR_PREVIEW ||
+               cw->blur_type == XFWM_BLUR_TABWIN ||
+               !(WIN_IS_ARGB(cw) || WIN_IS_SHAPED(cw))) &&
               !WIN_IS_FULLSCREEN(cw)) ||
           (screen_info->params->show_frame_shadow &&
               !WIN_IS_OVERRIDE(cw) &&
@@ -2890,6 +2907,59 @@ vsync_state (ScreenInfo *screen_info)
     return "off";
 }
 
+void
+compositorXRenderPrepare (CWindow *cw)
+{
+    if (!cw->picture) cw->picture = get_window_picture (cw);
+    if (!cw->borderSize) cw->borderSize = border_size (cw);
+    if (!cw->clientSize) cw->clientSize = client_size (cw);
+    if (!cw->extents) cw->extents = win_extents (cw, NULL);
+}
+
+void
+compositorXRenderRoot (ScreenInfo *screen, Picture buffer, XserverRegion clip)
+{
+    XFixesSetPictureClipRegion (screen->display_info->dpy, buffer, 0, 0, clip);
+    paint_root (screen, buffer);
+}
+
+void
+compositorXRenderWindow (CWindow *cw, Picture buffer, XserverRegion region,
+                       double factor, gint origin_x, gint origin_y)
+{
+    if (factor <= .0001) return;
+    compositorXRenderPrepare (cw);
+    Display *display = cw->screen_info->display_info->dpy;
+    XserverRegion clip = XFixesCreateRegion (display, NULL, 0);
+    if (cw->shadow)
+    {
+        XFixesSubtractRegion (display, clip, region, cw->borderSize);
+        XFixesSetPictureClipRegion (display, buffer, -origin_x, -origin_y, clip);
+        Picture black = factor == 1 ? cw->screen_info->blackPicture :
+            solid_picture (cw->screen_info, TRUE, factor, 0, 0, 0);
+        XRenderComposite (display, PictOpOver, black, cw->shadow, buffer, 0, 0, 0, 0,
+                           cw->attr.x + cw->shadow_dx - origin_x,
+                           cw->attr.y + cw->shadow_dy - origin_y, cw->shadow_width, cw->shadow_height);
+        if (factor != 1) XRenderFreePicture (display, black);
+    }
+    if (cw->picture)
+    {
+        XFixesIntersectRegion (display, clip, region, cw->borderSize);
+        XFixesSetPictureClipRegion (display, buffer, -origin_x, -origin_y, clip);
+        /* A rendering-only copy keeps real opacity, geometry and input state
+         * untouched, including while capturing an unmodified Peek snapshot. */
+        CWindow copy = *cw;
+        copy.attr.x -= origin_x; copy.attr.y -= origin_y;
+        copy.opacity = (guint32) (cw->opacity * CLAMP (factor, 0, 1));
+        copy.alphaBorderPict = None;
+        copy.alphaPict = solid_picture (cw->screen_info, FALSE, (double) copy.opacity / NET_WM_OPAQUE, 0, 0, 0);
+        paint_win (&copy, region, buffer, FALSE);
+        XRenderFreePicture (display, copy.alphaPict);
+        if (copy.alphaBorderPict) XRenderFreePicture (display, copy.alphaBorderPict);
+    }
+    XFixesDestroyRegion (display, clip);
+}
+
 static void
 set_render_backend_property (ScreenInfo *screen_info)
 {
@@ -2900,6 +2970,11 @@ set_render_backend_property (ScreenInfo *screen_info)
     g_return_if_fail (screen_info != NULL);
 
     display_info = screen_info->display_info;
+
+    Atom peek_support = XInternAtom (display_info->dpy, "_XFWM4_PEEK_SUPPORTED", False);
+    unsigned long peek_enabled = screen_info->compositor_active ? 1 : 0;
+    XChangeProperty (display_info->dpy, screen_info->xroot, peek_support, XA_CARDINAL,
+                     32, PropModeReplace, (unsigned char *) &peek_enabled, 1);
 
     if (!screen_info->compositor_active)
     {
@@ -3064,6 +3139,9 @@ paint_all (ScreenInfo *screen_info, XserverRegion region, gushort buffer)
         copy_region = XFixesCreateRegion (dpy, &whole, 1);
     }
 
+    if (xfwmXRPaintEffects (screen_info, paint_buffer, region))
+        goto xrender_present;
+
     /*
      * Painting from top to bottom, reducing the clipping area at each iteration.
      * Only the opaque windows are painted 1st.
@@ -3109,6 +3187,7 @@ paint_all (ScreenInfo *screen_info, XserverRegion region, gushort buffer)
         {
             cw->clientSize = client_size (cw);
         }
+        xfwmXRCacheClose (cw);
         if (WIN_IS_OPAQUE(cw))
         {
             paint_win (cw, paint_region, paint_buffer, TRUE);
@@ -3195,6 +3274,8 @@ paint_all (ScreenInfo *screen_info, XserverRegion region, gushort buffer)
         }
     }
 
+xrender_present:
+    xfwmXRCaptureFrame (screen_info, paint_buffer);
     TRACE ("copying data back to screen");
 #ifdef HAVE_EPOXY
     if (screen_info->use_glx)
@@ -3274,7 +3355,12 @@ paint_all (ScreenInfo *screen_info, XserverRegion region, gushort buffer)
     }
     XFixesDestroyRegion (dpy, paint_region);
 
-    myDisplayErrorTrapPopIgnored (display_info);
+    if (g_getenv ("XFWM4_ANIMATION_DEBUG"))
+    {
+        gint error = myDisplayErrorTrapPop (display_info);
+        if (error) g_warning ("XRender paint error: %d", error);
+    }
+    else myDisplayErrorTrapPopIgnored (display_info);
 }
 
 static void
@@ -3610,6 +3696,7 @@ fix_region (CWindow *cw, XserverRegion region)
 static void
 repair_win (CWindow *cw, XRectangle *r)
 {
+    cw->xr_snapshot_dirty = TRUE;
     DisplayInfo *display_info;
     ScreenInfo *screen_info;
     XserverRegion parts;
@@ -3629,6 +3716,7 @@ repair_win (CWindow *cw, XRectangle *r)
 
 #ifdef HAVE_EPOXY
     cw->gl_content_dirty = TRUE;
+    cw->gl_close_snapshot_dirty = TRUE;
 #endif /* HAVE_EPOXY */
 
     myDisplayErrorTrapPush (display_info);
@@ -3793,6 +3881,9 @@ set_win_opacity (CWindow *cw, guint32 opacity)
     display_info = screen_info->display_info;
 
     cw->opacity = opacity;
+#ifdef HAVE_EPOXY
+    cw->gl_close_snapshot_dirty = TRUE;
+#endif
     determine_mode(cw);
     if (cw->shadow_width > 0)
     {
@@ -3858,7 +3949,10 @@ can_draw_direct (CWindow *cw)
     /* For NET_WM_BYPASS_COMPOSITOR, 0 indicates no preference, 1 hints
      * the compositor to disabling compositing.
      */
-    return WIN_HAS_DAMAGE(cw) && !WIN_IS_SHAPED(cw) &&
+    /* Transformed scanout must retain the composed framebuffer, including
+     * fullscreen windows. Do not change the user's bypass preferences. */
+    return !screen_info->global_scale_compensated &&
+           WIN_HAS_DAMAGE(cw) && !WIN_IS_SHAPED(cw) &&
            (owns_screen (cw) ||
             (WIN_IS_NATIVE_OPAQUE(cw) &&
              ((cw->bypass_compositor == 1) ||
@@ -4018,6 +4112,19 @@ map_win (CWindow *cw)
 
     cw->viewable = TRUE;
     cw->damaged = FALSE;
+    if (cw->xr_open_pending && !cw->screen_info->use_gl_render)
+    {
+        cw->xr_open_pending = FALSE;
+        xfwmXRAnimateOpen (cw);
+    }
+
+#ifdef HAVE_EPOXY
+    if (cw->gl_open_pending && cw->screen_info->use_gl_render)
+    {
+        cw->gl_open_pending = FALSE;
+        xfwmGLAnimateOpen (cw);
+    }
+#endif
 
     if (WIN_HAS_DAMAGE(cw) && WIN_IS_NATIVE_OPAQUE(cw) &&
         !WIN_IS_SHAPED(cw) && is_fullscreen (cw))
@@ -4149,6 +4256,163 @@ update_opaque_region (CWindow *cw, Window id)
     }
 }
 
+#ifdef HAVE_EPOXY
+/* Keep popup categories separate: the preview has its own opt-in marker and
+ * must not become a tooltip merely because GTK advertises that EWMH type. */
+static XfwmBlurType
+get_unmanaged_blur_type (Display *dpy, Window id)
+{
+    static Atom preview_hint = None, tabwin_hint = None, type_property = None;
+    static Atom popup_types[6];
+    static char *names[] = {
+        "_NET_WM_WINDOW_TYPE_MENU",
+        "_NET_WM_WINDOW_TYPE_POPUP_MENU",
+        "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
+        "_NET_WM_WINDOW_TYPE_COMBO",
+        "_NET_WM_WINDOW_TYPE_TOOLTIP",
+        "_NET_WM_WINDOW_TYPE_NOTIFICATION"
+    };
+    Atom actual = None;
+    int format = 0;
+    unsigned long count = 0, remaining = 0;
+    unsigned char *value = NULL;
+    XfwmBlurType result = XFWM_BLUR_OTHER;
+
+    if (preview_hint == None)
+    {
+        preview_hint = XInternAtom (dpy, "_XFWM4_PREVIEW_BLUR", False);
+        tabwin_hint = XInternAtom (dpy, "_XFWM4_TABWIN_BLUR", False);
+        type_property = XInternAtom (dpy, "_NET_WM_WINDOW_TYPE", False);
+        XInternAtoms (dpy, names, G_N_ELEMENTS (names), False, popup_types);
+    }
+    if (XGetWindowProperty (dpy, id, preview_hint, 0, 1, False, XA_CARDINAL,
+                            &actual, &format, &count, &remaining, &value) == Success &&
+        actual == XA_CARDINAL && format == 32 && count == 1 && value &&
+        *(unsigned long *) value != 0)
+        result = XFWM_BLUR_PREVIEW;
+    if (value)
+        XFree (value);
+    if (result == XFWM_BLUR_PREVIEW)
+        return result;
+
+    value = NULL;
+    count = remaining = 0;
+    actual = None;
+    format = 0;
+    if (XGetWindowProperty (dpy, id, tabwin_hint, 0, 1, False, XA_CARDINAL,
+                            &actual, &format, &count, &remaining, &value) == Success &&
+        actual == XA_CARDINAL && format == 32 && count == 1 && value &&
+        *(unsigned long *) value != 0)
+        result = XFWM_BLUR_TABWIN;
+    if (value)
+        XFree (value);
+    if (result == XFWM_BLUR_TABWIN)
+        return result;
+
+    value = NULL;
+    if (XGetWindowProperty (dpy, id, type_property, 0, 16, False, XA_ATOM,
+                            &actual, &format, &count, &remaining, &value) == Success &&
+        actual == XA_ATOM && format == 32 && value)
+    {
+        Atom *types = (Atom *) value;
+        unsigned long j;
+        guint i;
+        for (j = 0; j < count && result == XFWM_BLUR_OTHER; j++)
+            for (i = 0; i < G_N_ELEMENTS (popup_types); i++)
+                if (popup_types[i] != None && types[j] == popup_types[i])
+                {
+                    result = i < 4 ? XFWM_BLUR_MENU :
+                             i == 4 ? XFWM_BLUR_TOOLTIP : XFWM_BLUR_NOTIFICATION;
+                    break;
+                }
+    }
+    if (value)
+        XFree (value);
+    return result;
+}
+#endif /* HAVE_EPOXY */
+
+#ifdef HAVE_EPOXY
+/* Cache drawable-local blur bounds rather than round-tripping through X11 on
+ * every frame. The popup declares its content; GTK CSD declares its shadow
+ * margins through the standard _GTK_FRAME_EXTENTS property. */
+static gboolean
+read_blur_hint_rect (DisplayInfo *display_info, Window id, Atom atom,
+                     gint result[4], gboolean content_rect)
+{
+    Atom type = None;
+    int format = 0, status;
+    unsigned long count = 0, remaining = 0;
+    unsigned char *bytes = NULL;
+    gboolean valid = FALSE;
+    guint i;
+
+    myDisplayErrorTrapPush (display_info);
+    status = XGetWindowProperty (display_info->dpy, id, atom, 0, 4, False,
+                                 XA_CARDINAL, &type, &format, &count,
+                                 &remaining, &bytes);
+    if (myDisplayErrorTrapPop (display_info) == Success &&
+        status == Success && type == XA_CARDINAL && format == 32 &&
+        count == 4 && bytes != NULL)
+    {
+        unsigned long *values = (unsigned long *) bytes;
+
+        valid = TRUE;
+        for (i = 0; i < 4; i++)
+            if (values[i] > G_MAXINT)
+                valid = FALSE;
+        if (valid && content_rect && (!values[2] || !values[3]))
+            valid = FALSE;
+        if (valid)
+            for (i = 0; i < 4; i++)
+                result[i] = (gint) values[i];
+    }
+    if (bytes)
+        XFree (bytes);
+    return valid;
+}
+
+static void
+update_blur_content_hints (CWindow *cw)
+{
+    DisplayInfo *display_info = cw->screen_info->display_info;
+    static Atom content_atom = None;
+    gboolean old_content = cw->blur_content_rect_valid;
+    gboolean old_gtk = cw->blur_gtk_extents_valid;
+    gint old_content_rect[4], old_gtk_extents[4];
+    Window source = WIN_HAS_CLIENT (cw) ? cw->c->window : cw->id;
+
+    if (content_atom == None)
+        content_atom = XInternAtom (display_info->dpy,
+                                   "_XFWM4_BLUR_CONTENT_RECT", False);
+
+    memcpy (old_content_rect, cw->blur_content_rect, sizeof old_content_rect);
+    memcpy (old_gtk_extents, cw->blur_gtk_extents, sizeof old_gtk_extents);
+    cw->blur_content_rect_valid = read_blur_hint_rect (display_info, source,
+                                                       content_atom,
+                                                       cw->blur_content_rect, TRUE);
+    cw->blur_gtk_extents_valid = read_blur_hint_rect (display_info, source,
+                                         display_info->atoms[GTK_FRAME_EXTENTS],
+                                         cw->blur_gtk_extents, FALSE);
+
+    if (old_content != cw->blur_content_rect_valid ||
+        old_gtk != cw->blur_gtk_extents_valid ||
+        (cw->blur_content_rect_valid &&
+         memcmp (old_content_rect, cw->blur_content_rect,
+                 sizeof old_content_rect) != 0) ||
+        (cw->blur_gtk_extents_valid &&
+         memcmp (old_gtk_extents, cw->blur_gtk_extents,
+                 sizeof old_gtk_extents) != 0))
+    {
+        /* add_win() reads the hint before insertion into the stacking list.
+         * Only queue a repaint for already-managed compositor windows. */
+        if (WIN_IS_VISIBLE (cw) &&
+            find_cwindow_in_screen (cw->screen_info, cw->id) == cw)
+            damage_win (cw);
+    }
+}
+#endif /* HAVE_EPOXY */
+
 static void
 add_win (DisplayInfo *display_info, Window id, Client *c)
 {
@@ -4272,6 +4536,15 @@ add_win (DisplayInfo *display_info, Window id, Client *c)
     }
     getBypassCompositor (display_info, (c != NULL) ? c->window : id,
                          &new->bypass_compositor);
+    /* The dedicated preview hint takes priority over the standard
+     * EWMH window-type classification of override-redirect windows. */
+#ifdef HAVE_EPOXY
+    if (!c && new->attr.override_redirect)
+    {
+        new->blur_type = get_unmanaged_blur_type (display_info->dpy, id);
+    }
+    update_blur_content_hints (new);
+#endif
     init_opacity (new);
     determine_mode (new);
 
@@ -4354,6 +4627,16 @@ resize_win (CWindow *cw, gint x, gint y, gint width, gint height, gint bw)
     screen_info = cw->screen_info;
     display_info = screen_info->display_info;
     damage = None;
+
+    if (cw->attr.x != x || cw->attr.y != y ||
+        cw->attr.width != width || cw->attr.height != height ||
+        cw->attr.border_width != bw)
+    {
+        xfwmXRConfigure (cw);
+#ifdef HAVE_EPOXY
+        xfwmGLConfigureAnimation (cw);
+#endif
+    }
 
     myDisplayErrorTrapPush (display_info);
 
@@ -4718,6 +5001,116 @@ compositorHandleDamage (DisplayInfo *display_info, XDamageNotifyEvent *ev)
 #endif /* HAVE_EPOXY */
 }
 
+/* Reuse the exact Alt+Tab wireframe for taskbar hover.  The property is
+ * transient, and the timer prevents an orphan outline if the panel dies. */
+static void
+hover_frame_stop (ScreenInfo *screen_info)
+{
+    if (screen_info->hover_timer)
+    {
+        g_source_remove (screen_info->hover_timer);
+        screen_info->hover_timer = 0;
+    }
+    if (screen_info->hover_wireframe)
+    {
+        wireframeDelete (screen_info->hover_wireframe);
+        screen_info->hover_wireframe = NULL;
+    }
+    screen_info->hover_target = None;
+    screen_info->hover_frame_fill = FALSE;
+}
+
+static gboolean
+hover_frame_tick (gpointer user_data)
+{
+    ScreenInfo *screen_info = (ScreenInfo *) user_data;
+    Client *c;
+
+    if (screen_info->hover_target == None ||
+        g_get_monotonic_time () - screen_info->hover_heartbeat > 850000)
+    {
+        screen_info->hover_timer = 0;
+        hover_frame_stop (screen_info);
+        return G_SOURCE_REMOVE;
+    }
+    c = myDisplayGetClientFromWindow (screen_info->display_info,
+                                      screen_info->hover_target, SEARCH_WINDOW);
+    if (!c || c->screen_info != screen_info)
+    {
+        screen_info->hover_timer = 0;
+        hover_frame_stop (screen_info);
+        return G_SOURCE_REMOVE;
+    }
+    if (screen_info->hover_wireframe)
+    {
+        WireFrame *frame = screen_info->hover_wireframe;
+        if (frame->x != frameExtentX (c) || frame->y != frameExtentY (c) ||
+            frame->width != frameExtentWidth (c) ||
+            frame->height != frameExtentHeight (c))
+            wireframeUpdate (c, frame);
+    }
+    return G_SOURCE_CONTINUE;
+}
+
+static void
+hover_frame_hint (ScreenInfo *screen_info)
+{
+    DisplayInfo *display_info = screen_info->display_info;
+    static Atom hover_atom = None;
+    Atom type = None;
+    int format = 0, status;
+    unsigned long count = 0, remaining = 0;
+    unsigned char *bytes = NULL;
+    Window target = None;
+    gboolean fill = TRUE; /* Compatibility with older one-CARDINAL panels. */
+    Client *c;
+
+    if (hover_atom == None)
+        hover_atom = XInternAtom (display_info->dpy, "_XFWM4_HOVER_FRAME", False);
+
+    myDisplayErrorTrapPush (display_info);
+    status = XGetWindowProperty (display_info->dpy, screen_info->xroot,
+                                 hover_atom, 0, 2, False, XA_CARDINAL,
+                                 &type, &format, &count, &remaining, &bytes);
+    if (myDisplayErrorTrapPop (display_info) == Success &&
+        status == Success && type == XA_CARDINAL && format == 32 &&
+        count >= 1 && bytes)
+    {
+        const unsigned long *data = (const unsigned long *) bytes;
+        target = data[0];
+        if (count >= 2)
+            fill = data[1] != 0;
+    }
+    if (bytes)
+        XFree (bytes);
+
+    if (target == None)
+    {
+        hover_frame_stop (screen_info);
+        return;
+    }
+    c = myDisplayGetClientFromWindow (display_info, target, SEARCH_WINDOW);
+    if (!c || c->screen_info != screen_info)
+    {
+        hover_frame_stop (screen_info);
+        return;
+    }
+    screen_info->hover_heartbeat = g_get_monotonic_time ();
+    if (screen_info->hover_wireframe == NULL ||
+        screen_info->hover_target != target ||
+        screen_info->hover_frame_fill != fill)
+    {
+        hover_frame_stop (screen_info);
+        screen_info->hover_wireframe = wireframeCreateWithFill (c, fill);
+        screen_info->hover_target = target;
+        screen_info->hover_frame_fill = fill;
+    }
+    if (screen_info->hover_wireframe &&
+        screen_info->hover_timer == 0)
+        screen_info->hover_timer =
+            g_timeout_add (160, hover_frame_tick, screen_info);
+}
+
 static void
 compositorHandlePropertyNotify (DisplayInfo *display_info, XPropertyEvent *ev)
 {
@@ -4729,6 +5122,111 @@ compositorHandlePropertyNotify (DisplayInfo *display_info, XPropertyEvent *ev)
     g_return_if_fail (display_info != NULL);
     g_return_if_fail (ev != NULL);
     TRACE ("window 0x%lx", ev->window);
+
+#if defined(HAVE_COMPOSITOR)
+    /* The tasklist communicates transient hover intent through a private
+     * root property, rather than touching X11 window opacity or mapping.
+     * Both renderers consume the same visual-only Peek state. */
+    {
+        static Atom peek_atom = None;
+        if (peek_atom == None)
+            peek_atom = XInternAtom (display_info->dpy, "_XFWM4_GL_PEEK", False);
+        if (ev->atom == peek_atom)
+        {
+            ScreenInfo *screen = myDisplayGetScreenFromRoot (display_info, ev->window);
+            if (screen && screen->compositor_active &&
+                !screen->cycle_peek_active)
+            {
+                Atom actual_type = None;
+                int actual_format = 0, status;
+                unsigned long nitems = 0, remaining = 0;
+                unsigned char *property = NULL;
+                Window target = None;
+                gint mode = 0, opacity = 15, duration = 180;
+
+                myDisplayErrorTrapPush (display_info);
+                status = XGetWindowProperty (display_info->dpy, ev->window,
+                                              peek_atom, 0, 4, False, XA_CARDINAL,
+                                              &actual_type, &actual_format,
+                                              &nitems, &remaining, &property);
+                if (myDisplayErrorTrapPop (display_info) == Success &&
+                    status == Success && actual_type == XA_CARDINAL &&
+                    actual_format == 32 && nitems == 4 && property != NULL)
+                {
+                    unsigned long *values = (unsigned long *) property;
+                    target = (Window) values[0];
+                    mode = (gint) values[1];
+                    opacity = (gint) values[2];
+                    duration = (gint) values[3];
+                }
+                if (property)
+                    XFree (property);
+                compositorSetPeek (screen, target, mode, opacity, duration);
+            }
+            return;
+        }
+    }
+#endif /* HAVE_EPOXY */
+
+#ifdef HAVE_EPOXY
+    /* GTK creates the X11 popup during realize(), then writes the preview
+     * marker before map(). A CreateNotify can reach us before the marker,
+     * so refresh the category on PropertyNotify as well as on creation. */
+    {
+        static Atom preview_atom = None, tabwin_atom = None, type_atom = None;
+        if (preview_atom == None)
+        {
+            preview_atom = XInternAtom (display_info->dpy, "_XFWM4_PREVIEW_BLUR", False);
+            tabwin_atom = XInternAtom (display_info->dpy, "_XFWM4_TABWIN_BLUR", False);
+            type_atom = XInternAtom (display_info->dpy, "_NET_WM_WINDOW_TYPE", False);
+        }
+        if (ev->atom == preview_atom || ev->atom == tabwin_atom ||
+            ev->atom == type_atom)
+        {
+            CWindow *cw = find_cwindow_in_display (display_info, ev->window);
+            if (cw && !WIN_HAS_CLIENT (cw) && WIN_IS_OVERRIDE (cw))
+            {
+                XfwmBlurType kind;
+                myDisplayErrorTrapPush (display_info);
+                kind = get_unmanaged_blur_type (display_info->dpy, cw->id);
+                myDisplayErrorTrapPopIgnored (display_info);
+                if (cw->blur_type != kind)
+                {
+                    cw->blur_type = kind;
+                    /* A late preview marker also changes shadow eligibility.
+                     * Rebuild the extents, not just the window's old damage. */
+                    drop_win_shadow (cw);
+                    if (cw->extents != None)
+                    {
+                        XFixesDestroyRegion (display_info->dpy, cw->extents);
+                        cw->extents = None;
+                    }
+                    if (WIN_IS_VISIBLE (cw))
+                        damage_screen (cw->screen_info);
+                }
+            }
+        }
+    }
+    /* Recompute blur limits whenever an application resizes its shadow
+     * margin or declares a changed content surface. X11 properties can
+     * arrive after CreateNotify; repaint both the old and new area. */
+    {
+        static Atom content_atom = None;
+        if (content_atom == None)
+            content_atom = XInternAtom (display_info->dpy,
+                                       "_XFWM4_BLUR_CONTENT_RECT", False);
+        if (ev->atom == content_atom ||
+            ev->atom == display_info->atoms[GTK_FRAME_EXTENTS])
+        {
+            Client *c = myDisplayGetClientFromWindow (display_info,
+                                                      ev->window, SEARCH_WINDOW);
+            CWindow *cw = find_cwindow_in_display (display_info,
+                                        c != NULL ? c->frame : ev->window);
+            if (is_on_compositor (cw))
+                update_blur_content_hints (cw);
+        }
+    }
+#endif /* HAVE_EPOXY */
 
 #if MONITOR_ROOT_PIXMAP
     backgroundProps[0] = display_info->atoms[XROOTPMAP];
@@ -5379,6 +5877,9 @@ compositorSetClient (DisplayInfo *display_info, Window id, Client *c)
     {
         if (cw->c != c)
         {
+#ifdef HAVE_EPOXY
+            xfwmGLCancelWindowAnimation (cw);
+#endif
             update_extents (cw);
             cw->c = c;
         }
@@ -5453,6 +5954,24 @@ compositorHandleEvent (DisplayInfo *display_info, XEvent *ev)
     g_return_if_fail (display_info != NULL);
     g_return_if_fail (ev != NULL);
     TRACE ("event type %i", ev->type);
+
+    /* Wireframes are WM feedback, not a compositing feature. Handle their
+     * root hint even when --compositor=off made the compositor unusable at
+     * startup; the original Xlib renderer still provides the fallback. */
+    if (ev->type == PropertyNotify)
+    {
+        static Atom hover_atom = None;
+        XPropertyEvent *property = (XPropertyEvent *) ev;
+        if (hover_atom == None)
+            hover_atom = XInternAtom (display_info->dpy, "_XFWM4_HOVER_FRAME", False);
+        if (property->atom == hover_atom)
+        {
+            ScreenInfo *screen = myDisplayGetScreenFromRoot (display_info, property->window);
+            if (screen != NULL)
+                hover_frame_hint (screen);
+            return;
+        }
+    }
 
     if (!compositorIsUsable (display_info))
     {
@@ -6125,7 +6644,10 @@ unmanage_screen (ScreenInfo *screen_info)
     }
     screen_info->compositor_active = FALSE;
     set_render_backend_property (screen_info);
+    compositorClearPeek (screen_info);
+    xfwmXRFinish (screen_info);
 
+    hover_frame_stop (screen_info);
     remove_timeouts (screen_info);
 
     myDisplayErrorTrapPush (display_info);
@@ -6401,6 +6923,8 @@ compositorUpdateScreenSize (ScreenInfo *screen_info)
         screen_info->zoomBuffer = None;
     }
 
+    xfwmXRCancel (screen_info);
+    compositorClearPeek (screen_info);
 #ifdef HAVE_EPOXY
     xfwmGLScreenSizeChanged (screen_info);
 #endif /* HAVE_EPOXY */
@@ -6436,6 +6960,151 @@ compositorUpdateScreenSize (ScreenInfo *screen_info)
     damage_screen (screen_info);
     myDisplayErrorTrapPopIgnored (display_info);
 #endif /* HAVE_COMPOSITOR */
+}
+
+/* State/input changes remain immediate; both backends animate owned images. */
+void
+compositorAnimateOpen (Client *c)
+{
+#ifdef HAVE_COMPOSITOR
+    if (c && c->screen_info->compositor_active && !c->screen_info->use_gl_render)
+    {
+        CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+        if (cw)
+        {
+            cw->xr_open_pending = TRUE;
+            if (WIN_IS_VIEWABLE (cw))
+            { cw->xr_open_pending = FALSE; xfwmXRAnimateOpen (cw); }
+        }
+    }
+#endif
+#if defined(HAVE_COMPOSITOR) && defined(HAVE_EPOXY)
+    if (c && c->screen_info->compositor_active && c->screen_info->use_gl_render)
+    {
+        CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+        if (cw)
+        {
+            cw->gl_open_pending = TRUE;
+            if (WIN_IS_VIEWABLE (cw))
+            {
+                cw->gl_open_pending = FALSE;
+                xfwmGLAnimateOpen (cw);
+            }
+        }
+    }
+#endif
+}
+
+void
+compositorAnimateClose (Client *c)
+{
+#ifdef HAVE_COMPOSITOR
+    if (c && c->screen_info->compositor_active && !c->screen_info->use_gl_render)
+    {
+        CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+        if (cw) xfwmXRAnimateClose (cw);
+    }
+#endif
+#if defined(HAVE_COMPOSITOR) && defined(HAVE_EPOXY)
+    if (c && c->screen_info->compositor_active && c->screen_info->use_gl_render)
+    {
+        CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+        if (cw)
+            xfwmGLAnimateClose (cw);
+    }
+#endif
+}
+
+void
+compositorAnimateWindow (Client *c, gboolean restore)
+{
+#ifdef HAVE_COMPOSITOR
+    if (c && c->screen_info->compositor_active && !c->screen_info->use_gl_render)
+    {
+        CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+        if (cw) xfwmXRAnimateWindow (cw, restore);
+    }
+#endif
+#if defined(HAVE_COMPOSITOR) && defined(HAVE_EPOXY)
+    CWindow *cw;
+
+    if (!c || !c->screen_info->compositor_active || !c->screen_info->use_gl_render)
+    {
+        return;
+    }
+    cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+    if (cw)
+    {
+        xfwmGLAnimateWindow (cw, restore);
+    }
+#endif
+}
+
+void
+compositorCancelWindowAnimation (Client *c)
+{
+#ifdef HAVE_COMPOSITOR
+    if (c && c->screen_info->compositor_active)
+    {
+        CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+        if (cw) xfwmXRCancelWindow (cw);
+    }
+#endif
+#if defined(HAVE_COMPOSITOR) && defined(HAVE_EPOXY)
+    CWindow *cw;
+
+    if (!c || !c->screen_info->use_gl_render)
+    {
+        return;
+    }
+    cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
+    if (cw)
+    {
+        xfwmGLCancelWindowAnimation (cw);
+    }
+#endif
+}
+
+void
+compositorCancelAnimations (ScreenInfo *screen_info)
+{
+#ifdef HAVE_COMPOSITOR
+    if (screen_info) xfwmXRCancel (screen_info);
+#endif
+#if defined(HAVE_COMPOSITOR) && defined(HAVE_EPOXY)
+    if (screen_info && screen_info->use_gl_render)
+    {
+        xfwmGLCancelAnimations (screen_info);
+    }
+#endif
+}
+
+void
+compositorDamageRegion (ScreenInfo *screen_info, const cairo_rectangle_int_t *rect)
+{
+#ifdef HAVE_COMPOSITOR
+    cairo_rectangle_int_t clipped;
+    XRectangle xr;
+
+    if (!screen_info || !screen_info->compositor_active || !rect)
+    {
+        return;
+    }
+    clipped.x = MAX (rect->x, 0);
+    clipped.y = MAX (rect->y, 0);
+    clipped.width = MIN (rect->x + rect->width, screen_info->width) - clipped.x;
+    clipped.height = MIN (rect->y + rect->height, screen_info->height) - clipped.y;
+    if (clipped.width <= 0 || clipped.height <= 0)
+    {
+        return;
+    }
+    xr.x = clipped.x;
+    xr.y = clipped.y;
+    xr.width = clipped.width;
+    xr.height = clipped.height;
+    add_damage (screen_info,
+                XFixesCreateRegion (screen_info->display_info->dpy, &xr, 1), &clipped);
+#endif
 }
 
 void
@@ -6485,6 +7154,22 @@ compositorRebuildScreen (ScreenInfo *screen_info)
     }
     damage_screen (screen_info);
 #endif /* HAVE_COMPOSITOR */
+}
+
+void
+compositorSetGlobalScale (ScreenInfo *screen_info, gboolean compensated)
+{
+    g_return_if_fail (screen_info != NULL);
+    if (screen_info->global_scale_compensated == compensated)
+        return;
+    screen_info->global_scale_compensated = compensated;
+#ifdef HAVE_COMPOSITOR
+    if (screen_info->compositor_active)
+    {
+        update_unredirected (screen_info);
+        damage_screen (screen_info);
+    }
+#endif
 }
 
 vblankMode

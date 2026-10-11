@@ -34,3 +34,179 @@ Sync to vblank is selected with the "--vblank" command line option or the
 With the OpenGL renderer, "glx" and "xpresent" behave like "auto".
 
 "xfwm4 --version" lists which of these were enabled at build time.
+
+Backdrop blur
+-------------
+
+The OpenGL renderer blurs the already-composited scene behind configured
+translucent window categories. Panels such as xfce4-panel can show frosted
+glass without capturing the root window themselves. MiniOS taskbar previews
+are identified by a dedicated X11 property; override-redirect menus, tooltips
+and notifications by their EWMH _NET_WM_WINDOW_TYPE. Window types are checked
+again on PropertyNotify, since GTK may set them after window creation.
+
+  /general/blur_enabled              boolean, enabled by default (master switch)
+  /general/blur_docks                boolean, enabled by default
+  /general/blur_transparent_windows  boolean, enabled by default (managed windows)
+  /general/blur_previews             boolean, enabled by default (MiniOS tasklist)
+  /general/blur_alt_tab              boolean, enabled by default (Alt+Tab popup)
+  /general/blur_menus                boolean, disabled by default (popup menus)
+  /general/blur_tooltips             boolean, disabled by default (tooltips)
+  /general/blur_notifications        boolean, disabled by default (notifications)
+  /general/blur_radius               1..64 pixels, default 14
+  /general/blur_strength             0..100 percent, default 80
+
+The blur is a Dual Kawase GPU pass over the selected window's region plus its
+sampling margin. An opaque window hides its own blurred backdrop. If the
+OpenGL shader/FBO path is unavailable, normal translucency is preserved.
+Disabling blur for one category does not disable it for others; XRender is
+unaffected.
+
+The GL blur region excludes xfwm4 compositor-owned shadows. For GTK
+client-side decorations, the compositor clips it to the surface excluding
+_GTK_FRAME_EXTENTS (left, right, top, bottom), including late property changes.
+A client may instead declare _XFWM4_BLUR_CONTENT_RECT as four CARDINAL values
+[x, y, width, height] relative to its own X11 drawable. MiniOS tasklist
+previews publish this automatically; their soft native Gaussian shadow is
+drawn outside the content and is never included in the popup backdrop blur.
+Tasklist and window-switcher shadows follow /general/show_popup_shadow and
+the standard /general/shadow_opacity and shadow offset parameters. No separate
+preview shadow control or CSS drop shadow is used. The preview/type markers
+are checked again on PropertyNotify, independently of the blur setting.
+Clients lacking both hints keep the standard whole-window blur area:
+raw ARGB alpha alone does not identify which pixels are a drop shadow.
+
+Window switcher and taskbar highlights
+------------------------------
+
+The window switcher (default shortcut Alt+Tab) can use the shared Peek path through
+/general/cycle_peek_mode (0 off, 1 dim, 2 hide) and
+/general/cycle_peek_opacity (0..100). The original window frame works
+independently through /general/cycle_draw_frame. The MiniOS tasklist may
+request the exact same window-switcher frame using the root-window property
+_XFWM4_HOVER_FRAME containing two CARDINAL values:
+  [hovered client XID (zero hides), fill enabled (zero or one)]
+A one-value request is also accepted and enables the fill.
+The renderer drops the frame on lost taskbar heartbeats after 850 ms, and
+continues working with XRender or compositing entirely disabled. Both
+renderers ignore taskbar Peek requests while an Alt+Tab cycle owns Peek.
+Wireframes have an empty X11 input shape in both their Cairo and Xlib paths:
+an outline or its transparent interior must never intercept a thumbnail's
+activation/close click when the selected window overlaps the preview popup.
+The hover hint is handled even when the WM starts with --compositor=off.
+
+Pointer-routing regression (requires Xvfb, python3-xlib, DBus and xfconf):
+  sh tests/check-hover-input /absolute/path/to/xfwm4 xrender
+  sh tests/check-hover-input /absolute/path/to/xfwm4 off
+Both use private X11/DBus/xfconf sessions and exercise popup clicks through
+the interior and outer edge with the frame fill enabled and disabled.
+
+The tasklist and switcher have one themed #xfwm-tabwin presentation. Their
+background color/opacity, corner radius, border, card spacing and content
+padding are rendered by shared xfwm-tabwin-style.h code. Window Manager Tweaks
+exposes cycle_background_custom/color/opacity, cycle_corner_radius,
+cycle_border_width, cycle_spacing and cycle_content_padding; the tasklist
+retains its corresponding preview-* values. Appearance does not require GL.
+
+Retained minimize snapshots
+---------------------------
+
+OpenGL and XRender minimize/restore animations use saved images, including
+client pixels, even after X11 has unmapped the window. The image is reused on
+restore until the window has finished its normal X11 repaint. Cached snapshots
+are bounded to 64 MiB per screen; older entries are evicted as needed. GL stores
+textures; XRender stores ARGB pixmaps in the X server, without CPU readback.
+Scale + Fade works on both backends. Magic Lamp remains GL-only.
+
+Opening and closing animations
+------------------------------
+
+/general/window_effect selects None (0), Scale + Fade (1, default), or Fade
+(2). /general/window_duration is 50–1000 ms, default 160 ms. These effects
+work on both compositor backends; no compositing retains immediate opening and
+closing. Opening waits for the first usable image.
+Closing removes the X11 client immediately and paints a detached image with
+XID-only stacking anchors, without retaining Client or CWindow pointers.
+Closing images share the 64 MiB cache budget with minimize snapshots and are
+released at completion or cancellation, including workspace/backend changes.
+
+tests/check-window-lifecycle <xfwm4-path> opengl|xrender <output-dir> exercises
+the effects in an isolated Xvfb/DBus session. Software GL requires a separate
+test-only build; production fallback policy is unchanged. For real GPU
+diagnostics, XFWM4_ANIMATION_TEST_SESSION=1 plus XFWM4_ANIMATION_CAPTURE_DIR
+enables cropped framebuffer captures. Remove both variables after the test.
+
+Backdrop blur and window opacity
+--------------------------------
+
+The final backdrop mix uses blur_strength multiplied by the window's native
+_NET_WM_WINDOW_OPACITY factor. At zero opacity no blur pass is painted. This
+keeps fading tasklist popups and other translucent UI from leaving a strong
+rectangular blur behind their disappearing contents. If the mix shader is
+unavailable, the ordinary premultiplied-alpha texture path uses the same weight.
+
+Tasklist Peek
+----------------
+
+The tasklist sends _XFWM4_GL_PEEK updates to the compositor when the
+pointer enters an individual thumbnail. Both renderers transition other
+windows' rendered opacity without altering the X11 client state; the selected
+window is painted on top from the live pixmap or, if iconified, its cached
+minimization snapshot.  The taskbar and popup are redrawn above the selection.
+The mode is off by default, and automatically expires after 1.1 seconds
+without a heartbeat. `_XFWM4_PEEK_SUPPORTED` advertises support to tasklist
+versions that know about XRender Peek; the historical request name is retained.
+
+The property is an array of four CARDINAL values on the X11 root window:
+  [client XID, mode, opacity percent for the other windows, duration in ms]
+Mode 0 disables Peek, mode 1 dims the other windows, and mode 2 hides them in
+the composed rendering output. Switching between thumbnails crossfades the raised
+windows; the normal display is restored on exit.  Heartbeat messages do not
+repaint the entire desktop when Peek is stationary.  If minimization effects
+are disabled, both backends save a non-animated snapshot at iconification so a
+previously minimized window can be previewed.  As with minimize animations,
+retained snapshots share a 64 MiB per-screen memory budget.  Missing/evicted
+snapshots cannot be displayed until the client maps again.
+
+The budget is reserved before allocating active effect images, not only after
+minimization finishes. Close-image maintenance admits only images that fit;
+it never evicts another image merely to fill the background cache. Existing
+same-size images are refreshed in place, and deferred client damage and native
+opacity changes remain pending independently of live texture rebinding.
+
+Blur scenes are composed bottom-to-top so a backdrop never samples an opaque
+foreground window. Partial repaint areas include the transitive closure of
+all affected blur sample rectangles before any layers are drawn. The switcher
+advertises its entire painted surface, including internal layout padding;
+native compositor shadows remain outside that drawable.
+
+Blur expansion is part of current visible frame damage, both for buffer-age
+history and EGL swap rectangles. Historical backbuffer repairs are accumulated
+separately and are never recorded as new current damage. Detached closing
+images retain foreground-covered pixels in bottom-up blur scenes, since a
+blurred surface can sample them before the foreground is composed.
+
+The switcher also checks its final GTK requisition against the monitor. A
+bounded scrolling viewport handles client counts, fonts and large padding
+values that cannot fit even with minimum-size icons; saved settings are not
+rewritten. Keyboard selection continues through the native GTK focus path.
+
+Focused regressions (private Xvfb/DBus/xfconf sessions):
+  sh tests/check-compositor-regressions /absolute/xfwm4 snapshot output-dir
+  sh tests/check-compositor-regressions /absolute/xfwm4 blur output-dir
+  sh tests/check-compositor-regressions /absolute/xfwm4 switcher output-dir
+  sh tests/check-compositor-regressions /absolute/xfwm4 closing-blur output-dir
+  XFWM4_DAMAGE_DEBUG=1 sh tests/check-compositor-regressions /absolute/xfwm4 damage output-dir
+  sh tests/check-compositor-damage
+The first two require accelerated GL or a separate software-enabled test build.
+They read actual GL framebuffer pixels using XFWM4_ANIMATION_CAPTURE_ALL=1,
+which is honored only with the existing test-session and capture-directory
+variables. It captures naturally requested paints, without adding a repaint
+timer. The switcher geometry test also works with the production XRender path.
+
+Integration checks: tests/check-peek <xfwm4-path> opengl|xrender <output-dir>
+The tests use an isolated Xvfb display and private DBus/xfconf, never the
+current user desktop.  Software GL may be blacklisted in the normal MiniOS
+binary: run the OpenGL case with an accelerated test X server or in a separate
+test-only build that permits software GL. The XRender case exercises Scale +
+Fade and verifies that Magic Lamp remains inactive on that backend.

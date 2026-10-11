@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+binary=$(mktemp)
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+${CC:-cc} -std=c99 -Wall -Wextra -Werror -O2 -I"$root/src" \
+    "$root/tests/test-compositor-damage.c" -o "$binary" $(pkg-config --cflags --libs glib-2.0 cairo)
+"$binary"

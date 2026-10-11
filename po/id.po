@@ -1,7 +1,7 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR Xfce
 # This file is distributed under the same license as the xfwm4.master package.
-# 
+#
 # Translators:
 # Abdul Munif Hanafi <amunifhanafi@gmail.com>, 2023
 # Andhika Padmawan <andhika.padmawan@gmail.com>, 2008
@@ -13,10 +13,10 @@
 # Triyan W. Nugroho <triyan.wn@gmail.com>, 2020
 msgid ""
 msgstr ""
-"Project-Id-Version: Xfwm4\n"
+"Project-Id-Version: xfwm4-gl 4.20.0+gl1+git20261009.af5f68f-0minios2\n"
 "Report-Msgid-Bugs-To: https://gitlab.xfce.org/\n"
-"POT-Creation-Date: 2024-03-26 00:55+0100\n"
-"PO-Revision-Date: 2013-07-02 20:22+0000\n"
+"POT-Creation-Date: 2026-10-10 22:19+0300\n"
+"PO-Revision-Date: 2026-10-10 19:20+0000\n"
 "Last-Translator: Abdul Munif Hanafi <amunifhanafi@gmail.com>, 2023\n"
 "Language-Team: Indonesian (http://app.transifex.com/xfce/xfwm4/language/id/)\n"
 "MIME-Version: 1.0\n"
@@ -29,49 +29,172 @@ msgstr ""
 msgid ""
 "This window might be busy and is not responding.\n"
 "Do you want to terminate the application?"
-msgstr "Jendela ini mungkin sibuk dan tidak merespon.\nAnda ingin menutup aplikasi?"
+msgstr ""
+"Jendela ini mungkin sibuk dan tidak merespon.\n"
+"Anda ingin menutup aplikasi?"
 
 #: helper-dialog/helper-dialog.c:91
 msgid "Warning"
 msgstr "Peringatan"
 
-#: settings-dialogs/tweaks-settings.c:55
+#: settings-dialogs/tweaks-settings.c:57
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1285
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1352
 msgid "None"
 msgstr "Tak ada"
 
-#: settings-dialogs/tweaks-settings.c:500
+#: settings-dialogs/tweaks-settings.c:244
+msgid "OpenGL EGL"
+msgstr "OpenGL EGL"
+
+#: settings-dialogs/tweaks-settings.c:248
+msgid "OpenGL GLX"
+msgstr "OpenGL GLX"
+
+#: settings-dialogs/tweaks-settings.c:252
+msgid "XRender"
+msgstr "XRender"
+
+#: settings-dialogs/tweaks-settings.c:260
+msgid "vsync on"
+msgstr "vsync aktif"
+
+#: settings-dialogs/tweaks-settings.c:264
+msgid "vsync off"
+msgstr "vsync nonaktif"
+
+#: settings-dialogs/tweaks-settings.c:268
+msgid "adaptive vsync"
+msgstr "vsync adaptif"
+
+#: settings-dialogs/tweaks-settings.c:274
+#, c-format
+msgid "(currently: %s, %s)"
+msgstr "(saat ini: %s, %s)"
+
+#: settings-dialogs/tweaks-settings.c:278
+#, c-format
+msgid "(currently: %s)"
+msgstr "(saat ini: %s)"
+
+#: settings-dialogs/tweaks-settings.c:282
+msgid "(currently off)"
+msgstr "(saat ini nonaktif)"
+
+#: settings-dialogs/tweaks-settings.c:427
+msgid "Unable to load default settings"
+msgstr "Tidak dapat memuat pengaturan default"
+
+#: settings-dialogs/tweaks-settings.c:474
+msgid "_Reset"
+msgstr "_Atur Ulang"
+
+#: settings-dialogs/tweaks-settings.c:484
+msgid "Window switcher appearance"
+msgstr "Tampilan pengalih jendela"
+
+#: settings-dialogs/tweaks-settings.c:486 src/menu.c:73
+#: settings-dialogs/xfwm4-dialog.glade:94
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:122
+#: settings-dialogs/xfwm4-workspace-dialog.glade:433
+msgid "_Close"
+msgstr "_Tutup"
+
+#: settings-dialogs/tweaks-settings.c:490
+msgid "Use _custom background color"
+msgstr "Gunakan warna latar belakang _kustom"
+
+#: settings-dialogs/tweaks-settings.c:491
+msgid "Background _color:"
+msgstr "Warna latar belakang:"
+
+#: settings-dialogs/tweaks-settings.c:517
+msgid "Background _opacity (%):"
+msgstr "Opasitas latar belakang (%):"
+
+#: settings-dialogs/tweaks-settings.c:518
+msgid "Corner _radius (px):"
+msgstr "Radius _sudut (px):"
+
+#: settings-dialogs/tweaks-settings.c:519
+msgid "_Border width (px):"
+msgstr "Lebar _bingkai (px):"
+
+#: settings-dialogs/tweaks-settings.c:520
+msgid "Space between _windows (px):"
+msgstr "Jarak antar _jendela (px):"
+
+#: settings-dialogs/tweaks-settings.c:521
+msgid "_Padding around previews (px):"
+msgstr "_Padding di sekitar pratinjau (px):"
+
+#: settings-dialogs/tweaks-settings.c:522
+msgid "Maximum _width (px):"
+msgstr "Lebar _maksimum (px):"
+
+#: settings-dialogs/tweaks-settings.c:523
+msgid "Maximum _height (px):"
+msgstr "Tinggi _maksimum (px):"
+
+#: settings-dialogs/tweaks-settings.c:525
+msgid "<b>Selection</b>"
+msgstr "<b>Pilihan</b>"
+
+#: settings-dialogs/tweaks-settings.c:528
+msgid "Selection _padding (px):"
+msgstr "_Padding pilihan (px):"
+
+#: settings-dialogs/tweaks-settings.c:529
+msgid "Use custom _selection color"
+msgstr "Gunakan warna _pilihan khusus"
+
+#: settings-dialogs/tweaks-settings.c:534
+msgid "Selection color:"
+msgstr "Warna pilihan:"
+
+#: settings-dialogs/tweaks-settings.c:545
+msgid "Selection corner radius (px):"
+msgstr "Radius sudut pilihan (px):"
+
+#: settings-dialogs/tweaks-settings.c:546
+msgid "Selection opacity (%):"
+msgstr "Opasitas pilihan (%):"
+
+#: settings-dialogs/tweaks-settings.c:1070
 msgid "Session manager socket"
 msgstr "Soket manajer sesi"
 
-#: settings-dialogs/tweaks-settings.c:500
+#: settings-dialogs/tweaks-settings.c:1070
 #: settings-dialogs/workspace-settings.c:422
-#: settings-dialogs/xfwm4-settings.c:240
+#: settings-dialogs/xfwm4-settings.c:241
 msgid "SOCKET ID"
 msgstr "ID SOKET"
 
-#: settings-dialogs/tweaks-settings.c:501
+#: settings-dialogs/tweaks-settings.c:1071
 #: settings-dialogs/workspace-settings.c:423
-#: settings-dialogs/xfwm4-settings.c:242
+#: settings-dialogs/xfwm4-settings.c:243
 msgid "Version information"
 msgstr "Informasi versi"
 
-#: settings-dialogs/tweaks-settings.c:517
+#: settings-dialogs/tweaks-settings.c:1087
 #: settings-dialogs/workspace-settings.c:440
-#: settings-dialogs/xfwm4-settings.c:869
+#: settings-dialogs/xfwm4-settings.c:882
 msgid "."
 msgstr "."
 
-#: settings-dialogs/tweaks-settings.c:521
+#: settings-dialogs/tweaks-settings.c:1091
 #: settings-dialogs/workspace-settings.c:444
-#: settings-dialogs/xfwm4-settings.c:873
+#: settings-dialogs/xfwm4-settings.c:886
 #, c-format
 msgid ""
 "%s: %s\n"
 "Try %s --help to see a full list of available command line options.\n"
-msgstr "%s: %s\nCoba %s --help untuk melihat senarai penuh opsi baris perintah yang tersedia.\n"
+msgstr ""
+"%s: %s\n"
+"Coba %s --help untuk melihat senarai penuh opsi baris perintah yang tersedia.\n"
 
 #: settings-dialogs/workspace-settings.c:94
-#: settings-dialogs/workspace-settings.c:109
+#: settings-dialogs/workspace-settings.c:108
 #, c-format
 msgid "Workspace %d"
 msgstr "Area kerja %d"
@@ -81,70 +204,246 @@ msgid "Workspace Name"
 msgstr "Nama Area Kerja"
 
 #: settings-dialogs/workspace-settings.c:422
-#: settings-dialogs/xfwm4-settings.c:240
+#: settings-dialogs/xfwm4-settings.c:241
 msgid "Settings manager socket"
 msgstr "Soket manajer pengaturan"
 
-#: settings-dialogs/xfce-wm-settings.desktop.in:4
+#: settings-dialogs/xfwm4-settings.c:219
+msgid "Shade window"
+msgstr "Pepalkan jendela"
+
+#: settings-dialogs/xfwm4-settings.c:220
+msgid "Hide window"
+msgstr "Sembunyikan jendela"
+
+#: settings-dialogs/xfwm4-settings.c:221
+msgid "Maximize window"
+msgstr "Maksimalkan Jendela"
+
+#: settings-dialogs/xfwm4-settings.c:222
+msgid "Fill window"
+msgstr "Perluas jendela"
+
+#: settings-dialogs/xfwm4-settings.c:223
+msgid "Always on top"
+msgstr "Selalu di atas"
+
+#: settings-dialogs/xfwm4-settings.c:224
+msgid "Nothing"
+msgstr "Tak ada"
+
+#: settings-dialogs/xfwm4-settings.c:229
+msgid "Left"
+msgstr "Kiri"
+
+#: settings-dialogs/xfwm4-settings.c:230
+msgid "Center"
+msgstr "Tengah"
+
+#: settings-dialogs/xfwm4-settings.c:231
+msgid "Right"
+msgstr "Kanan"
+
+#: settings-dialogs/xfwm4-settings.c:347
+msgid "Theme"
+msgstr "Tema"
+
+#: settings-dialogs/xfwm4-settings.c:497
+msgid "Action"
+msgstr "Aksi"
+
+#: settings-dialogs/xfwm4-settings.c:504
+msgid "Shortcut"
+msgstr "Pintasan"
+
+#: settings-dialogs/xfwm4-settings.c:911
+#, c-format
+msgid "Failed to initialize xfconf. Reason: %s"
+msgstr "Gagal menginisialisasi xfconf. Keterangan: %s"
+
+#: settings-dialogs/xfwm4-settings.c:922
+msgid "Could not create the settings dialog."
+msgstr "Tidak dapat menampilkan dialog pengaturan."
+
+#: settings-dialogs/xfwm4-settings.c:1931
+msgid "This will reset all shortcuts to their default values. Do you really want to do this?"
+msgstr "Ini akan mengatur ulang semua jalan pintas ke kondisi standar. Anda yakin ingin melanjutkan?"
+
+#: settings-dialogs/xfwm4-settings.c:1933
+msgid "Reset to Defaults"
+msgstr "Kembalikan ke Kondisi Standar"
+
+#. TRANSLATORS: "(on %s)" is like "running on" the name of the other host
+#: src/client.c:216
+#, c-format
+msgid "%s (on %s)"
+msgstr "%s (pada %s)"
+
+#: src/keyboard.c:147 src/settings.c:158
+#, c-format
+msgid "Unsupported keyboard modifier '%s'"
+msgstr "Modifikasi papan tik '%s' tidak didukung"
+
+#: src/main.c:611
+msgid "Set the compositor mode"
+msgstr "Atur mode kompositor"
+
+#: src/main.c:613
+msgid "Set the vblank mode"
+msgstr "Atur mode vblank"
+
+#: src/main.c:623
+msgid "Replace the existing window manager"
+msgstr "Ganti manajer jendela yang ada"
+
+#: src/main.c:625
+msgid "Print version information and exit"
+msgstr "Menampilkan informasi versi"
+
+#: src/main.c:628
+msgid "Enable debug logging"
+msgstr "Aktifkan log pengawakutuan"
+
+#: src/main.c:668
+msgid "[ARGUMENTS...]"
+msgstr "[ARGUMEN...]"
+
+#: src/main.c:675
+#, c-format
+msgid "Type \"%s --help\" for usage."
+msgstr "Ketik \"%s --help\" untuk bantuan penggunaan."
+
+#: src/menu.c:51
+msgid "Ma_ximize"
+msgstr "Maksima_lkan"
+
+#: src/menu.c:52
+msgid "Unma_ximize"
+msgstr "T_ak Maksimalkan"
+
+#: src/menu.c:53
+msgid "Mi_nimize"
+msgstr "Mi_nimalkan"
+
+#: src/menu.c:54
+msgid "Minimize _Other Windows"
+msgstr "Minimalkan _Jendela Lain"
+
+#: src/menu.c:55
+msgid "S_how"
+msgstr "Ta_mpilkan"
+
+#: src/menu.c:56
+msgid "_Move"
+msgstr "_Pindah"
+
+#: src/menu.c:57
+msgid "_Resize"
+msgstr "_Ubah Ukuran"
+
+#: src/menu.c:59
+msgid "Always on _Top"
+msgstr "Selalu di _Atas"
+
+#: src/menu.c:60
+msgid "_Same as Other Windows"
+msgstr "_Sama Seperti Jendela Lainnya"
+
+#: src/menu.c:61
+msgid "Always _Below Other Windows"
+msgstr "Selalu di _Bawah Jendela Lainnya"
+
+#: src/menu.c:63
+msgid "Roll Window Up"
+msgstr "Gulung Jendela (Pepal) ke Atas"
+
+#: src/menu.c:64
+msgid "Roll Window Down"
+msgstr "Bentang Jendela (Luaskan) ke Bawah"
+
+#: src/menu.c:65
+msgid "_Fullscreen"
+msgstr "Mode _Layar Penuh"
+
+#: src/menu.c:66
+msgid "Leave _Fullscreen"
+msgstr "Tinggalkan Mode _Layar Penuh"
+
+#: src/menu.c:67
+msgid "Context _Help"
+msgstr "_Bantuan Terkait"
+
+#: src/menu.c:69
+msgid "Always on _Visible Workspace"
+msgstr "Selalu _Terlihat di Semua Area Kerja"
+
+#: src/menu.c:70
+msgid "Move to Another _Workspace"
+msgstr "Pindahkan ke Area Kerja _Lain"
+
+#: src/menu.c:71
+msgid "Move to Another Monitor"
+msgstr "Pindah ke Monitor Lain"
+
+#: src/menu.c:76
+msgid "Destroy"
+msgstr "Lenyapkan"
+
+#: src/menu.c:79
+msgid "_Quit"
+msgstr "_Keluar"
+
+#: src/menu.c:80
+msgid "Restart"
+msgstr "Mulai Ulang"
+
+#: src/menu.c:207
+msgid "Monitor _Left"
+msgstr "Monitor _Kiri"
+
+#: src/menu.c:211
+msgid "Monitor _Right"
+msgstr "Monitor _Kanan"
+
+#: src/menu.c:215
+msgid "Monitor _Up"
+msgstr "Monitor _Atas"
+
+#: src/menu.c:219
+msgid "Monitor _Down"
+msgstr "Monitor _Bawah"
+
+#: src/menu.c:459
+#, c-format
+msgid ""
+"%s: GtkMenu failed to grab the pointer\n"
+msgstr ""
+"%s: GtkMenu gagal mendapatkan penunjuk tetikus\n"
+
+#: src/terminate.c:83
+#, c-format
+msgid ""
+"Error reading data from child process: %s\n"
+msgstr ""
+"Galat saat membaca data dari sub-proses: %s\n"
+
+#: src/terminate.c:141
+#, c-format
+msgid ""
+"Cannot spawn helper-dialog: %s\n"
+msgstr ""
+"Tak dapat menampilkan dialog: %s\n"
+
 #: settings-dialogs/xfwm4-dialog.glade:61
+#: settings-dialogs/xfce-wm-settings.desktop.in:3
 msgid "Window Manager"
 msgstr "Manajer Jendela"
 
-#: settings-dialogs/xfce-wm-settings.desktop.in:5
-msgid "Configure window behavior and shortcuts"
-msgstr "Atur perilaku jendela dan jalan pintas"
-
-#: settings-dialogs/xfce-wm-settings.desktop.in:6
-msgid ""
-"windows;management;settings;preferences;themes;styles;decorations;title "
-"bar;font;buttons;menu;minimize;maximize;shade;roll up;layout;keyboard "
-"shortcuts;focus;snapping;screen;workspaces;edges;corner;hide "
-"content;move;resize;moving;resizing;double click;"
-msgstr "jendela;manajemen;pengaturan;preferensi;tema;gaya;dekorasi;bilah judul;fonta;tombol;menu;minimalkan;maksimalkan;bayang;gulung;tata letak;pintasan papan tik;fokus;lekatkan;layar;area kerja;sisi;sudut;sembunyikan isi;pindah;ubah ukuran;pindahkan;mengubah ukuran;klik ganda;"
-
-#: settings-dialogs/xfce-wmtweaks-settings.desktop.in:4
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:54
-msgid "Window Manager Tweaks"
-msgstr "Pengaturan Lanjut Manajer Jendela"
-
-#: settings-dialogs/xfce-wmtweaks-settings.desktop.in:5
-msgid "Fine-tune window behaviour and effects"
-msgstr "Atur perilaku jendela dah efek"
-
-#: settings-dialogs/xfce-wmtweaks-settings.desktop.in:6
-msgid ""
-"windows;behavior;settings;preferences;cycling;cycle;switching;focus;raises;accessibility;key;dragging;move;moving;hide;frame;title"
-" bar;maximized;tile;screen;edge;hot corner;snapping;mouse wheel;roll "
-"up;workspaces;placement;compositor;compositing;enable;disable;shadows;decorations;opacity;resize;inactive;preview;compiz;transitions;"
-msgstr "jendela;perilaku;pengaturan;preferensi;peredaran;siklus;pindah;fokus;majukan;aksesibilitas;kunci;seret;pindah;memindah;sembunyikan;bingkai;bilah judul;maksimalkan;ubin;layar;sisi;sudut panas;lekatkan;roda tetikus;gulung;area kerja;peletakan;kompositor;komposisi;aktifkan;nonaktifkan;bayangan;dekorasi;opasitas;ubah ukuran;tak aktif;pratinjau;compiz;transisi;"
-
-#: settings-dialogs/xfce-workspaces-settings.desktop.in:4
-#: settings-dialogs/xfwm4-workspace-dialog.glade:44
-msgid "Workspaces"
-msgstr "Area Kerja"
-
-#: settings-dialogs/xfce-workspaces-settings.desktop.in:5
-msgid "Configure layout, names and margins"
-msgstr "Atur tata letak, nama, dan jarak"
-
-#: settings-dialogs/xfce-workspaces-settings.desktop.in:6
-msgid ""
-"workspaces;settings;preferences;virtual "
-"desktops;number;windows;screen;margins;"
-msgstr "area kerja;pengaturan;preferensi;dekstop virtual;nomor;jendela;layar;pinggiran;"
-
 #: settings-dialogs/xfwm4-dialog.glade:77
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:71
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:105
 #: settings-dialogs/xfwm4-workspace-dialog.glade:416
 msgid "_Help"
 msgstr "Ba_ntuan"
-
-#. ----------------------------------------------
-#: settings-dialogs/xfwm4-dialog.glade:94
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:88
-#: settings-dialogs/xfwm4-workspace-dialog.glade:433 src/menu.c:73
-msgid "_Close"
-msgstr "_Tutup"
 
 #: settings-dialogs/xfwm4-dialog.glade:163
 msgid "<b>The_me</b>"
@@ -289,7 +588,7 @@ msgid "<b>Raise on click</b>"
 msgstr "<b>Ajukan saat diklik</b>"
 
 #: settings-dialogs/xfwm4-dialog.glade:1088
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:397
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:430
 msgid "_Focus"
 msgstr "_Fokus"
 
@@ -310,7 +609,7 @@ msgstr "Ja_rak:"
 #. Smart placement size
 #: settings-dialogs/xfwm4-dialog.glade:1202
 #: settings-dialogs/xfwm4-dialog.glade:1374
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:722
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:755
 msgid "<i>Small</i>"
 msgstr "<i>Kecil</i>"
 
@@ -365,289 +664,378 @@ msgstr "<b>Aksi klik _ganda</b>"
 msgid "Ad_vanced"
 msgstr "_Lain-Lain"
 
-#: settings-dialogs/xfwm4-settings.c:218
-msgid "Shade window"
-msgstr "Pepalkan jendela"
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:88
+#: settings-dialogs/xfce-wmtweaks-settings.desktop.in:3
+msgid "Window Manager Tweaks"
+msgstr "Pengaturan Lanjut Manajer Jendela"
 
-#: settings-dialogs/xfwm4-settings.c:219
-msgid "Hide window"
-msgstr "Sembunyikan jendela"
-
-#: settings-dialogs/xfwm4-settings.c:220
-msgid "Maximize window"
-msgstr "Maksimalkan Jendela"
-
-#: settings-dialogs/xfwm4-settings.c:221
-msgid "Fill window"
-msgstr "Perluas jendela"
-
-#: settings-dialogs/xfwm4-settings.c:222
-msgid "Always on top"
-msgstr "Selalu di atas"
-
-#: settings-dialogs/xfwm4-settings.c:223
-msgid "Nothing"
-msgstr "Tak ada"
-
-#: settings-dialogs/xfwm4-settings.c:228
-msgid "Left"
-msgstr "Kiri"
-
-#: settings-dialogs/xfwm4-settings.c:229
-msgid "Center"
-msgstr "Tengah"
-
-#: settings-dialogs/xfwm4-settings.c:230
-msgid "Right"
-msgstr "Kanan"
-
-#: settings-dialogs/xfwm4-settings.c:346
-msgid "Theme"
-msgstr "Tema"
-
-#: settings-dialogs/xfwm4-settings.c:496
-msgid "Action"
-msgstr "Aksi"
-
-#: settings-dialogs/xfwm4-settings.c:503
-msgid "Shortcut"
-msgstr "Pintasan"
-
-#: settings-dialogs/xfwm4-settings.c:898
-#, c-format
-msgid "Failed to initialize xfconf. Reason: %s"
-msgstr "Gagal menginisialisasi xfconf. Keterangan: %s"
-
-#: settings-dialogs/xfwm4-settings.c:909
-msgid "Could not create the settings dialog."
-msgstr "Tidak dapat menampilkan dialog pengaturan."
-
-#: settings-dialogs/xfwm4-settings.c:1915
-msgid ""
-"This will reset all shortcuts to their default values. Do you really want to"
-" do this?"
-msgstr "Ini akan mengatur ulang semua jalan pintas ke kondisi standar. Anda yakin ingin melanjutkan?"
-
-#: settings-dialogs/xfwm4-settings.c:1917
-msgid "Reset to Defaults"
-msgstr "Kembalikan ke Kondisi Standar"
-
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:124
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:158
 msgid ""
 "S_kip windows that have \"skip pager\"\n"
 "or \"skip taskbar\" properties set"
-msgstr "_Lewati jendela yang punya pengaturan properti\n\"skip pager\" atau \"skip taskbar\""
+msgstr ""
+"_Lewati jendela yang punya pengaturan properti\n"
+"\"skip pager\" atau \"skip taskbar\""
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:141
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:175
 msgid "Cycle _through minimized windows in most recently used order"
 msgstr "Gulir jendela-jendela yang diminimalkan dengan urutan yang paling baru digunakan"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:157
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:191
 msgid "_Include hidden (i.e. iconified) windows"
 msgstr "Termasuk jendela tersembuny_i (diikonkan)"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:173
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:207
 msgid "Cycle _through windows on all workspaces"
 msgstr "Daur _seluruh jendela dari semua area kerja"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:189
-msgid "_Draw frame around selected window while cycling"
-msgstr "_Perlihatkan bingkai di sekeliling jendela terpilih ketika mendaur"
-
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:205
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:223
 msgid "_Raise windows while cycling"
 msgstr "Ajukan jendela saat mendau_r"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:221
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:239
 msgid "Cycle through windows in a _list"
 msgstr "Tampilan daur jendela berbentuk _daftar vertikal"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:241
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:258
+msgid "_Appearance..."
+msgstr "_Tampilan..."
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:274
 msgid "C_ycling"
 msgstr "_Daur"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:257
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:290
 msgid "Activate foc_us stealing prevention"
 msgstr "Aktifkan _pencegahan pengalihan fokus"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:273
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:306
 msgid "Honor _standard ICCCM focus hint"
 msgstr "Ikuti _standar penunjuk fokus ICCCM"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:298
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:331
 msgid "When a window raises itself:"
 msgstr "Ketika jendela mengajukan dirinya sendiri:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:321
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:354
 msgid "_Bring window on current workspace"
 msgstr "_Bawa jendela ke area kerja saat ini"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:338
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:371
 msgid "Switch to win_dow's workspace"
 msgstr "_Berpindah ke lokasi jendela tersebut"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:356
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:389
 msgid "Do _nothing"
 msgstr "Tak lakukan _apa-apa"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:423
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:456
 msgid "Key used to _grab and move windows:"
 msgstr "Tombol yang digunakan untuk _menangkap dan memindahkan jendela:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:453
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:486
 msgid "_Raise windows when any mouse button is pressed"
 msgstr "_Ajukan jendela ketika ada tombol tetikus yang ditekan"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:469
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:502
 msgid "Hide frame of windows when ma_ximized"
 msgstr "Sembunyikan _bingkai ketika jendela dimaksimalkan"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:485
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:518
 msgid "Hide title of windows when maximized"
 msgstr "Sembunyikan _judul ketika jendela dimaksimalkan"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:500
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:533
 msgid "Automatically _tile windows when moving toward the screen edge"
 msgstr "Sesuaikan secara otomatis ukuran jendela saat dipindah dan mencapai _tepi layar"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:516
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:549
 msgid "Use _edge resistance instead of window snapping"
 msgstr "Gunakan fitur ketahanan _tepi ketimbang magnetisasi jendela"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:532
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:565
 msgid "Use mouse wheel on title bar to ro_ll up the window"
 msgstr "Gunakan roda tetikus pada batang judul untuk mempepal jendela"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:548
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:581
 msgid "Notify of _urgency by making window's decoration blink"
 msgstr "Jadikan dekorasi jendela berkedip saat jendela membutuhkan interaksi pengguna"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:564
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:597
 msgid "Keep urgent windows _blinking repeatedly"
 msgstr "Biarkan jendela mendesak _berkedip berulang kali"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:587
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:620
 msgid "_Accessibility"
 msgstr "_Aksesibilitas"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:604
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:637
 msgid "Use the _mouse wheel on the desktop to switch workspaces"
 msgstr "Gunakan _roda tetikus pada desktop untuk berpindah area kerja"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:620
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:653
 msgid ""
 "_Remember and recall previous workspace\n"
 "when switching via keyboard shortcuts"
-msgstr "_Ingat dan panggil ulang area kerja sebelumnya\nketika pindah via jalan pintas papan ketik"
+msgstr ""
+"_Ingat dan panggil ulang area kerja sebelumnya\n"
+"ketika pindah via jalan pintas papan ketik"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:637
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:670
 msgid "Wrap workspaces depending on the actual desktop _layout"
 msgstr "Daur area kerja berdasarkan tata _letak destop sebenarnya"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:653
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:686
 msgid "Wrap workspaces when _the first or the last workspace is reached"
 msgstr "_Ulang urutan daur saat area kerja pertama atau terakhir tercapai"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:676
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:709
 msgid "_Workspaces"
 msgstr "Area Kerja"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:696
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:729
 msgid "_Minimum size of windows to trigger smart placement:"
 msgstr "_Ukuran minimum jendela untuk mengaktifkan penempatan cerdas:"
 
 #. Smart placement size
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:750
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:783
 msgid "<i>Large</i>"
 msgstr "<i>Besar</i>"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:779
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:812
 msgid "By default, place windows:"
 msgstr "Secara standar, tempatkan jendela pada:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:802
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:835
 msgid "At the c_enter of the screen"
 msgstr "Di _tengah layar"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:818
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:851
 msgid "U_nder the mouse pointer"
 msgstr "Di lokasi _penunjuk tetikus"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:859
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:892
 msgid "_Placement"
 msgstr "_Penempatan"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:876
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:915
 msgid "_Enable display compositing"
 msgstr "Akti_fkan fitur komposisi tampilan"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:917
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:975
+msgid "Use _OpenGL for compositing"
+msgstr "Gunakan _OpenGL untuk komposit"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:976
+msgid "Requires OpenGL 2.0, otherwise falls back to XRender"
+msgstr "Membutuhkan OpenGL 2.0, jika tidak akan menggunakan XRender"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:992
+msgid "Enable background _blur"
+msgstr "Aktifkan _blur latar belakang"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:993
+msgid "Blur the background behind translucent panels and windows when using the OpenGL compositor"
+msgstr "Blur latar belakang di balik panel dan jendela transparan saat menggunakan kompositor OpenGL"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1014
+msgid "Blur _panels and dock windows"
+msgstr "Blur panel dan jendela dock"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1027
+msgid "Blur _transparent windows"
+msgstr "Blur jendela _transparan"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1040
+msgid "Blur taskbar _previews"
+msgstr "Blur pratinjau taskbar"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1053
+msgid "Blur popup _menus"
+msgstr "Blur menu popup"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1066
+msgid "Blur _tooltips"
+msgstr "Blur tooltip"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1079
+msgid "Blur _notifications"
+msgstr "Blur notifikasi"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1092
+msgid "Blur _window switcher background"
+msgstr "Blur latar belakang _window switcher"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1118
+msgid "Blur _radius:"
+msgstr "_Radius blur:"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1150
+msgid "Blur _strength:"
+msgstr "_Kekuatan blur:"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1177
+msgid "Window switcher"
+msgstr "Window switcher"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1188
+msgid "Window switcher _visual effect:"
+msgstr "Efek visual _window switcher:"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1199
+msgid "Use compositor-only Peek with OpenGL or XRender. Without compositing, use the original window frame."
+msgstr "Gunakan Peek khusus kompositor dengan OpenGL atau XRender. Tanpa kompositing, gunakan bingkai jendela asli."
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1201
+msgid "Off"
+msgstr "Mati"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1202
+msgid "Dim other windows"
+msgstr "Redupkan jendela lain"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1203
+msgid "Hide other windows"
+msgstr "Sembunyikan jendela lain"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1211
+msgid "Other windows _opacity (%):"
+msgstr "_Opasitas jendela lain (%):"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1234
+msgid "Draw _frame around selected window"
+msgstr "Gambar _bingkai di sekitar jendela yang dipilih"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1243
+msgid "_Highlight inside frame"
+msgstr "_Sorot bagian dalam bingkai"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1259
+msgid "Minimize and restore"
+msgstr "Minimalkan dan pulihkan"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1260
+msgid "Scale + Fade works with OpenGL and XRender. Magic Lamp requires OpenGL. Without compositing, windows are minimized and restored without animation."
+msgstr "Scale + Fade bekerja dengan OpenGL dan XRender. Magic Lamp memerlukan OpenGL. Tanpa kompositing, jendela diminimalkan dan dipulihkan tanpa animasi."
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1273
+msgid "Minimize _effect:"
+msgstr "Efek _minimize:"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1286
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1353
+msgid "Scale + Fade"
+msgstr "Scale + Fade"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1287
+msgid "Magic Lamp"
+msgstr "Magic Lamp"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1296
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1363
+msgid "D_uration (ms):"
+msgstr "D_urasi (ms):"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1327
+msgid "Open and close"
+msgstr "Buka dan tutup"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1328
+msgid "Works with OpenGL and XRender. Without compositing, windows open and close without animation."
+msgstr "Berfungsi dengan OpenGL dan XRender. Tanpa kompositing, jendela dibuka dan ditutup tanpa animasi."
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1341
+msgid "Window _effect:"
+msgstr "_Efek jendela:"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1354
+msgid "Fade"
+msgstr "Memudar"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1386
+msgid "_Suspend compositing for focused fullscreen windows"
+msgstr "_Tangguhkan komposit untuk jendela fullscreen yang difokuskan"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1387
+msgid "Improves performance in fullscreen applications; compositing resumes when the window closes or loses focus. Video may tear while it is off"
+msgstr "Meningkatkan performa pada aplikasi layar penuh; komposit akan dilanjutkan saat jendela ditutup atau kehilangan fokus. Video mungkin mengalami tearing saat komposit dimatikan"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1403
 msgid "Display _fullscreen overlay windows directly"
 msgstr "Tampilkan secara langsung jendela lapisan layar penuh"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:933
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1404
+msgid "Let fullscreen windows that bypass the window manager draw straight to the screen"
+msgstr "Izinkan jendela fullscreen yang melewati window manager menggambar langsung ke layar"
+
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1420
 msgid "Show windows preview in place of icons when cycling"
 msgstr "Tampilkan pratinjau isi jendela saat mendaur"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:949
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1436
 msgid "Show shadows under pop_up windows"
 msgstr "Tampilkan bayangan di bawah jendela p_op-up"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:965
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1452
 msgid "Show shadows under _dock windows"
 msgstr "Tampilkan bayangan di bawah jendela _dok"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:981
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1468
 msgid "Show shadows under _regular windows"
 msgstr "Tampilkan bayangan di bawah jendela _reguler"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:997
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1484
 msgid "Zoom desktop with mouse wheel"
 msgstr "Zum desktop dengan roda tetikus"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1013
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1500
 msgid "Zoom pointer along with the desktop"
 msgstr "Perbesar penunjuk bersama dengan desktop"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1032
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1519
 msgid "Opaci_ty of window decorations:"
 msgstr "Opasi_tas dekorasi jendela:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1057
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1133
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1209
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1285
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1361
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1544
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1620
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1696
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1772
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1848
 msgid "<i>Transparent</i>"
 msgstr "<i>Transparan</i>"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1085
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1161
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1237
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1313
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1389
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1572
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1648
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1724
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1800
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1876
 msgid "<i>Opaque</i>"
 msgstr "<i>Solid</i>"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1108
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1595
 msgid "Opacity of _inactive windows:"
 msgstr "Opasitas _jendela tidak aktif:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1184
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1671
 msgid "Opacity of windows during _move:"
 msgstr "Opasitas jendela ketika di_pindah:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1260
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1747
 msgid "Opacity of windows during resi_ze:"
 msgstr "Opasitas jendela saat mengubah uku_ran:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1336
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1823
 msgid "Opacity of popup wi_ndows:"
 msgstr "Opasitas jendela pop-_up:"
 
-#: settings-dialogs/xfwm4-tweaks-dialog.glade:1429
+#: settings-dialogs/xfwm4-tweaks-dialog.glade:1916
 msgid "C_ompositor"
 msgstr "K_ompositor"
+
+#: settings-dialogs/xfwm4-workspace-dialog.glade:44
+#: settings-dialogs/xfce-workspaces-settings.desktop.in:3
+msgid "Workspaces"
+msgstr "Area Kerja"
 
 #: settings-dialogs/xfwm4-workspace-dialog.glade:90
 msgid "_Number of workspaces:"
@@ -666,153 +1054,42 @@ msgid "_General"
 msgstr "_Umum"
 
 #: settings-dialogs/xfwm4-workspace-dialog.glade:232
-msgid ""
-"Margins are areas on the edges of the screen where no window will be placed"
+msgid "Margins are areas on the edges of the screen where no window will be placed"
 msgstr "Marjin adalah area di pinggir layar yang tidak bisa ditempati jendela"
 
 #: settings-dialogs/xfwm4-workspace-dialog.glade:393
 msgid "_Margins"
 msgstr "_Marjin"
 
-#. TRANSLATORS: "(on %s)" is like "running on" the name of the other host
-#: src/client.c:215
-#, c-format
-msgid "%s (on %s)"
-msgstr "%s (pada %s)"
+#: settings-dialogs/xfce-wm-settings.desktop.in:4
+msgid "Configure window behavior and shortcuts"
+msgstr "Atur perilaku jendela dan jalan pintas"
 
-#: src/keyboard.c:143 src/settings.c:160
-#, c-format
-msgid "Unsupported keyboard modifier '%s'"
-msgstr "Modifikasi papan tik '%s' tidak didukung"
+#: settings-dialogs/xfce-wm-settings.desktop.in:5
+msgid "windows;management;settings;preferences;themes;styles;decorations;title bar;font;buttons;menu;minimize;maximize;shade;roll up;layout;keyboard shortcuts;focus;snapping;screen;workspaces;edges;corner;hide content;move;resize;moving;resizing;double click;"
+msgstr "jendela;manajemen;pengaturan;preferensi;tema;gaya;dekorasi;bilah judul;fonta;tombol;menu;minimalkan;maksimalkan;bayang;gulung;tata letak;pintasan papan tik;fokus;lekatkan;layar;area kerja;sisi;sudut;sembunyikan isi;pindah;ubah ukuran;pindahkan;mengubah ukuran;klik ganda;"
 
-#: src/main.c:616
-msgid "Set the compositor mode"
-msgstr "Atur mode kompositor"
+#: settings-dialogs/xfce-wmtweaks-settings.desktop.in:4
+msgid "Fine-tune window behaviour and effects"
+msgstr "Atur perilaku jendela dah efek"
 
-#: src/main.c:618
-msgid "Set the vblank mode"
-msgstr "Atur mode vblank"
+#: settings-dialogs/xfce-wmtweaks-settings.desktop.in:5
+msgid "windows;behavior;settings;preferences;cycling;cycle;switching;focus;raises;accessibility;key;dragging;move;moving;hide;frame;title bar;maximized;tile;screen;edge;hot corner;snapping;mouse wheel;roll up;workspaces;placement;compositor;compositing;enable;disable;shadows;decorations;opacity;resize;inactive;preview;compiz;transitions;"
+msgstr "jendela;perilaku;pengaturan;preferensi;peredaran;siklus;pindah;fokus;majukan;aksesibilitas;kunci;seret;pindah;memindah;sembunyikan;bingkai;bilah judul;maksimalkan;ubin;layar;sisi;sudut panas;lekatkan;roda tetikus;gulung;area kerja;peletakan;kompositor;komposisi;aktifkan;nonaktifkan;bayangan;dekorasi;opasitas;ubah ukuran;tak aktif;pratinjau;compiz;transisi;"
 
-#: src/main.c:628
-msgid "Replace the existing window manager"
-msgstr "Ganti manajer jendela yang ada"
+#: settings-dialogs/xfce-workspaces-settings.desktop.in:4
+msgid "Configure layout, names and margins"
+msgstr "Atur tata letak, nama, dan jarak"
 
-#: src/main.c:630
-msgid "Print version information and exit"
-msgstr "Menampilkan informasi versi"
+#: settings-dialogs/xfce-workspaces-settings.desktop.in:5
+msgid "workspaces;settings;preferences;virtual desktops;number;windows;screen;margins;"
+msgstr "area kerja;pengaturan;preferensi;dekstop virtual;nomor;jendela;layar;pinggiran;"
 
-#: src/main.c:633
-msgid "Enable debug logging"
-msgstr "Aktifkan log pengawakutuan"
+#~ msgid "Use compositor-only Peek in the window switcher. The original window frame still works with XRender."
+#~ msgstr "Gunakan Peek hanya dengan compositor di window switcher. Bingkai jendela asli tetap berfungsi dengan XRender."
 
-#: src/main.c:673
-msgid "[ARGUMENTS...]"
-msgstr "[ARGUMEN...]"
+#~ msgid "Requires the OpenGL compositor. With XRender or compositing disabled, windows are minimized and restored without animation."
+#~ msgstr "Membutuhkan kompositor OpenGL. Dengan XRender atau kompositing dinonaktifkan, jendela diminimalkan dan dipulihkan tanpa animasi."
 
-#: src/main.c:680
-#, c-format
-msgid "Type \"%s --help\" for usage."
-msgstr "Ketik \"%s --help\" untuk bantuan penggunaan."
-
-#: src/menu.c:51
-msgid "Ma_ximize"
-msgstr "Maksima_lkan"
-
-#: src/menu.c:52
-msgid "Unma_ximize"
-msgstr "T_ak Maksimalkan"
-
-#: src/menu.c:53
-msgid "Mi_nimize"
-msgstr "Mi_nimalkan"
-
-#: src/menu.c:54
-msgid "Minimize _Other Windows"
-msgstr "Minimalkan _Jendela Lain"
-
-#: src/menu.c:55
-msgid "S_how"
-msgstr "Ta_mpilkan"
-
-#: src/menu.c:56
-msgid "_Move"
-msgstr "_Pindah"
-
-#: src/menu.c:57
-msgid "_Resize"
-msgstr "_Ubah Ukuran"
-
-#. ----------------------------------------------
-#: src/menu.c:59
-msgid "Always on _Top"
-msgstr "Selalu di _Atas"
-
-#: src/menu.c:60
-msgid "_Same as Other Windows"
-msgstr "_Sama Seperti Jendela Lainnya"
-
-#: src/menu.c:61
-msgid "Always _Below Other Windows"
-msgstr "Selalu di _Bawah Jendela Lainnya"
-
-#. ----------------------------------------------
-#: src/menu.c:63
-msgid "Roll Window Up"
-msgstr "Gulung Jendela (Pepal) ke Atas"
-
-#: src/menu.c:64
-msgid "Roll Window Down"
-msgstr "Bentang Jendela (Luaskan) ke Bawah"
-
-#: src/menu.c:65
-msgid "_Fullscreen"
-msgstr "Mode _Layar Penuh"
-
-#: src/menu.c:66
-msgid "Leave _Fullscreen"
-msgstr "Tinggalkan Mode _Layar Penuh"
-
-#: src/menu.c:67
-msgid "Context _Help"
-msgstr "_Bantuan Terkait"
-
-#. ----------------------------------------------
-#: src/menu.c:69
-msgid "Always on _Visible Workspace"
-msgstr "Selalu _Terlihat di Semua Area Kerja"
-
-#: src/menu.c:70
-msgid "Move to Another _Workspace"
-msgstr "Pindahkan ke Area Kerja _Lain"
-
-#: src/menu.c:71
-msgid "Move to Another Monitor"
-msgstr "Pindah ke Monitor Lain"
-
-#. --------------------------------------------------------
-#: src/menu.c:76
-msgid "Destroy"
-msgstr "Lenyapkan"
-
-#: src/menu.c:79
-msgid "_Quit"
-msgstr "_Keluar"
-
-#: src/menu.c:80
-msgid "Restart"
-msgstr "Mulai Ulang"
-
-#: src/menu.c:457
-#, c-format
-msgid "%s: GtkMenu failed to grab the pointer\n"
-msgstr "%s: GtkMenu gagal mendapatkan penunjuk tetikus\n"
-
-#: src/terminate.c:77
-#, c-format
-msgid "Error reading data from child process: %s\n"
-msgstr "Galat saat membaca data dari sub-proses: %s\n"
-
-#: src/terminate.c:135
-#, c-format
-msgid "Cannot spawn helper-dialog: %s\n"
-msgstr "Tak dapat menampilkan dialog: %s\n"
+#~ msgid "Requires the OpenGL compositor. With XRender or compositing disabled, windows open and close without animation."
+#~ msgstr "Memerlukan compositor OpenGL. Dengan XRender atau kompositing dinonaktifkan, jendela akan terbuka dan tertutup tanpa animasi."

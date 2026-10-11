@@ -1,0 +1,15 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Isolated regression: visual wireframes must not intercept popup clicks.
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+wm=$1
+backend=$2
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+mkdir -p "$work/home" "$work/config" "$work/cache" "$work/runtime"
+chmod 700 "$work/runtime"
+export HOME="$work/home" XDG_CONFIG_HOME="$work/config" XDG_CACHE_HOME="$work/cache"
+export XDG_RUNTIME_DIR="$work/runtime" NO_AT_BRIDGE=1
+dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24 +extension Composite' \
+    /usr/bin/python3 "$root/tests/check-hover-input.py" "$wm" "$backend"

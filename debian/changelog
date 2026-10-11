@@ -1,3 +1,36 @@
+xfwm4-gl (4.20.0+gl1+git20261009.af5f68f-0minios2) unstable; urgency=medium
+
+  * Load the busy cursor through the active Xcursor theme and size instead of a
+    fixed monochrome bitmap, following cursor-theme and HiDPI updates.
+  * Support Fade and Scale + Fade opening/closing, Scale + Fade minimize/restore,
+    and visual-only Peek with XRender, sharing timing, geometry and Peek state
+    with OpenGL. Keep Magic Lamp and backdrop blur exclusive to OpenGL.
+  * Preserve the published upstream snapshot archive and record MiniOS source
+    modifications in a generated Debian quilt patch.
+
+ -- crims0n <crims0n@minios.dev>  Sun, 11 Oct 2026 03:15:57 +0300
+
+xfwm4-gl (4.20.0+gl1+git20261009.af5f68f-0minios1) unstable; urgency=medium
+
+  * Add configurable OpenGL backdrop blur for panels, translucent applications,
+    tasklist previews, Alt+Tab, menus, tooltips and notifications, with native
+    popup shadows and blur that follows content bounds and window opacity.
+  * Add OpenGL opening/closing animations with Scale + Fade or Fade, and
+    minimize/restore animations with Scale + Fade or Magic Lamp, with adjustable
+    durations.
+  * Add OpenGL Peek for tasklist hover and Alt+Tab to dim or hide other windows
+    and preview cached minimized windows without activating them.
+  * Share native window outlines and optional interior highlighting between
+    Alt+Tab and tasklist hover, including XRender and non-composited sessions.
+  * Share themed window-switcher and tasklist preview styling; add switcher
+    controls for colors, opacity, borders, corners, spacing, padding, thumbnail
+    dimensions and selection highlighting.
+  * Add separate resets for window-switcher appearance and compositor settings.
+  * Support global interface scaling for window decorations and preserve window
+    positions and restore geometry when the scale changes.
+
+ -- crims0n <crims0n@minios.dev>  Sat, 10 Oct 2026 02:36:32 +0300
+
 xfwm4-gl (4.20.0+gl1+git20261001.00710be-1) unstable; urgency=medium
 
   * Package upstream commit 00710be0c46ec654cd35c1aaec87578b5929d713.

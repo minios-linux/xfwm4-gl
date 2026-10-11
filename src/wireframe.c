@@ -203,7 +203,7 @@ static void wireframeSetHints (WireFrame *wireframe)
 }
 
 WireFrame *
-wireframeCreate (Client *c)
+wireframeCreateWithFill (Client *c, gboolean fill)
 {
     ScreenInfo *screen_info;
     WireFrame *wireframe;
@@ -224,7 +224,8 @@ wireframeCreate (Client *c)
     wireframe->height = 0;
     wireframe->cr = NULL;
     wireframe->surface = NULL;
-    wireframe->alpha = (compositorIsActive (screen_info) ? 0.5 : 1.0);
+    wireframe->alpha = (compositorIsActive (screen_info) ?
+                        (fill ? 0.5 : 0.0) : 1.0);
 
     if (compositorIsActive (screen_info) &&
         XMatchVisualInfo (myScreenGetXDisplay (screen_info), screen_info->screen,
@@ -253,8 +254,21 @@ wireframeCreate (Client *c)
                                         frameExtentX (c), frameExtentY (c),
                                         frameExtentWidth (c), frameExtentHeight (c),
                                         0, depth, InputOutput, xvisual,
-                                        CWOverrideRedirect | CWColormap | CWBackPixel | CWBorderPixel,
-                                        &attrs);
+                                         CWOverrideRedirect | CWColormap | CWBackPixel | CWBorderPixel,
+                                         &attrs);
+
+    /* A wireframe is visual feedback, never an input target. In particular,
+     * changing the tasklist hover target creates it above an existing popup.
+     * An ARGB outline still has a rectangular input area even when its fill
+     * is transparent, so it would swallow thumbnail and close-button clicks
+     * wherever the selected window overlaps that popup. Keep the same input
+     * transparency for Cairo and the shaped Xlib fallback. */
+    if (screen_info->display_info->have_shape)
+    {
+        XShapeCombineRectangles (myScreenGetXDisplay (screen_info),
+                                 wireframe->xwindow, ShapeInput, 0, 0,
+                                 NULL, 0, ShapeSet, Unsorted);
+    }
 
     if (compositorIsActive (screen_info))
     {
@@ -272,6 +286,21 @@ wireframeCreate (Client *c)
     wireframeUpdate (c, wireframe);
 
     return (wireframe);
+}
+
+/* Keep the original Alt+Tab outline fully visible with GL Peek, without
+ * tinting the selected window with the old semi-opaque selection fill.
+ * Ordinary Alt+Tab (Peek Off) and taskbar hover retain the original fill. */
+WireFrame *
+wireframeCreateOutline (Client *c)
+{
+    return wireframeCreateWithFill (c, FALSE);
+}
+
+WireFrame *
+wireframeCreate (Client *c)
+{
+    return wireframeCreateWithFill (c, TRUE);
 }
 
 void

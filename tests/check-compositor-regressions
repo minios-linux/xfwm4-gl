@@ -1,0 +1,20 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Private Xvfb/DBus/profile only. GL requires an accelerated or test-only WM.
+# Usage: sh tests/check-compositor-regressions /absolute/xfwm4 snapshot|blur|damage|closing-blur|switcher|switcher-normal output-dir
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+wm=$1; suite=$2; output=$3
+work=$(mktemp -d)
+# xfconfd flushes its private profile after dbus-run-session closes the bus.
+trap 'sleep 1; rm -rf "$work"' EXIT HUP INT TERM
+mkdir -p "$work/home" "$work/config" "$work/cache" "$work/runtime" "$output/frames"
+chmod 700 "$work/runtime"
+output=$(realpath "$output")
+export HOME="$work/home" XDG_CONFIG_HOME="$work/config" XDG_CACHE_HOME="$work/cache" XDG_RUNTIME_DIR="$work/runtime"
+export NO_AT_BRIDGE=1 XFWM4_ANIMATION_DEBUG=1 XFWM4_ANIMATION_TEST_SESSION=1
+export XFWM4_ANIMATION_CAPTURE_ALL=1 XFWM4_ANIMATION_CAPTURE_DIR="$output/frames"
+size=1280x800x24
+if [ "$suite" = switcher ]; then size=640x480x24; fi
+dbus-run-session -- xvfb-run -a -s "-screen 0 $size +extension GLX +extension Composite" \
+    /usr/bin/python3 "$root/tests/check-compositor-regressions.py" "$wm" "$suite" "$output"

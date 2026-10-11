@@ -117,6 +117,11 @@ struct _ScreenInfo
 
     /* Title font */
     PangoFontDescription *font_desc;
+    gint theme_scale;
+    gboolean global_scale_compensated;
+    XfconfChannel *global_scale_channel;
+    gint global_scale_toolkit;
+    gdouble global_scale_compensation;
     PangoAttrList *pango_attr_list;
 
     /* Screen data */
@@ -133,6 +138,14 @@ struct _ScreenInfo
     Window xfwm4_win;
     Window xroot;
     Window shape_win;
+#ifdef HAVE_COMPOSITOR
+    struct _WireFrame *hover_wireframe;
+    Window hover_target;
+    gboolean hover_frame_fill;
+    guint hover_timer;
+    gint64 hover_heartbeat;
+    gboolean cycle_peek_active;
+#endif
 
     gint gnome_margins[4];
     gint margins[4];
@@ -227,6 +240,8 @@ struct _ScreenInfo
     vblankMode vblank_mode;
 
     gboolean use_gl_render;
+    gpointer peek_data;
+    gpointer xrender_effects;
     gboolean use_egl_backend;
     guint paint_stats_painted;
     gint64 paint_stats_since;

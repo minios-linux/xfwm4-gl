@@ -54,6 +54,7 @@ struct _Tabwin
     gint grid_cols;
     gint grid_rows;
     gint icon_size;
+    gint preview_width, preview_height, selection_padding;
     gint icon_scale;
     gint label_height;
     gboolean display_workspace;

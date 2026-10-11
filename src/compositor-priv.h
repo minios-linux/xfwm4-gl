@@ -108,6 +108,16 @@
 
 #define ZOOM_SMOOTHING_WANTED(zoom)     ((zoom) > 0.25 && (zoom) < 1.0)
 
+typedef enum
+{
+    XFWM_BLUR_OTHER = 0,
+    XFWM_BLUR_PREVIEW,
+    XFWM_BLUR_TABWIN,
+    XFWM_BLUR_MENU,
+    XFWM_BLUR_TOOLTIP,
+    XFWM_BLUR_NOTIFICATION
+} XfwmBlurType;
+
 typedef struct _CWindow CWindow;
 struct _CWindow
 {
@@ -124,6 +134,13 @@ struct _CWindow
     gboolean skipped;
     gboolean native_opacity;
     gboolean opacity_locked;
+    XfwmBlurType blur_type;
+    /* Only the content surface may trigger backdrop blur: GTK CSD shadows
+     * remain painted at their original alpha. */
+    gboolean blur_content_rect_valid;
+    gboolean blur_gtk_extents_valid;
+    gint blur_content_rect[4];  /* x, y, width, height; drawable-local */
+    gint blur_gtk_extents[4];   /* left, right, top, bottom */
 
     Damage damage;
 #if HAVE_NAME_WINDOW_PIXMAP
@@ -148,8 +165,14 @@ struct _CWindow
 
     guint32 opacity;
     guint32 bypass_compositor;
+    struct _XfwmXRenderAnimation *xr_animation, *xr_close_snapshot;
+    gboolean xr_snapshot_dirty;
+    gboolean xr_open_pending;
 
 #ifdef HAVE_EPOXY
+    struct _XfwmGLAnimation *gl_animation;
+    struct _XfwmGLAnimation *gl_close_snapshot;
+    gboolean gl_open_pending;
     GLXPixmap gl_pixmap;
     gpointer egl_image;
     GLuint gl_texture;
@@ -160,6 +183,8 @@ struct _CWindow
     gboolean gl_texture_bound;
     gboolean gl_y_inverted;
     gboolean gl_content_dirty;
+    /* Texture rebinding must not acknowledge a deferred close-image update. */
+    gboolean gl_close_snapshot_dirty;
     cairo_region_t *gl_shape;
     cairo_region_t *gl_opaque;
     cairo_region_t *gl_paint_clip;

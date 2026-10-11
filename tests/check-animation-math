@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+binary=$(mktemp)
+trap 'rm -f "$binary"' EXIT HUP INT TERM
+${CC:-cc} -std=c99 -Wall -Wextra -Werror -O2 -I"$root/src" \
+    "$root/tests/test-animation-math.c" "$root/src/animation-math.c" -lm -o "$binary"
+"$binary"

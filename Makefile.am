@@ -5,7 +5,26 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 EXTRA_DIST =								\
 	example.gtkrc-2.0						\
 	COMPOSITOR							\
-	README.md
+	README.md							\
+	tests/check-animation-math					\
+	tests/test-animation-math.c					\
+	tests/check-compositor-regressions				\
+	tests/check-compositor-regressions.py				\
+	tests/check-compositor-damage					\
+	tests/test-compositor-damage.c					\
+	tests/cursor-probe.c
+
+EXTRA_DIST += tests/check-peek tests/check-peek.py \
+	tests/check-window-lifecycle tests/check-window-lifecycle.py \
+	tests/check-minimize tests/check-minimize.py tests/animation-probe.c
+
+check-local:
+	CC="$(CC)" $(SHELL) $(srcdir)/tests/check-animation-math
+	CC="$(CC)" $(SHELL) $(srcdir)/tests/check-compositor-damage
+	@set -e; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT HUP INT TERM; \
+	$(SHELL) $(srcdir)/tests/check-window-lifecycle "$(abs_builddir)/src/xfwm4-check" xrender "$$out/lifecycle"; \
+	$(SHELL) $(srcdir)/tests/check-peek "$(abs_builddir)/src/xfwm4-check" xrender "$$out/peek"; \
+	$(SHELL) $(srcdir)/tests/check-minimize "$(abs_builddir)/src/xfwm4-check" xrender "$$out/minimize"
 
 SUBDIRS = 								\
 	defaults 							\

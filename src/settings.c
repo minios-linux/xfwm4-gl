@@ -262,6 +262,9 @@ getThemeName (ScreenInfo *screen_info, Settings *rc)
     gint scale;
 
     scale = gdk_window_get_scale_factor (myScreenGetGdkWindow (screen_info));
+    /* Global interface scaling scales the selected theme's assets itself. */
+    if (screen_info->global_scale_toolkit == 2)
+        return theme;
     if (scale == 1)
     {
         return theme;
@@ -455,6 +458,7 @@ loadTheme (ScreenInfo *screen_info, Settings *rc)
     }
 
     font = getStringValue ("title_font", rc);
+    screen_info->theme_scale = screen_info->global_scale_toolkit == 2 ? 2 : 1;
     if (font && strlen (font))
     {
         screen_info->font_desc = pango_font_description_from_string (font);
@@ -560,6 +564,20 @@ loadTheme (ScreenInfo *screen_info, Settings *rc)
         getIntValue ("title_vertical_offset_inactive", rc);
     screen_info->params->title_horizontal_offset =
         getIntValue ("title_horizontal_offset", rc);
+
+    /* These fields are X pixel metrics, unlike GTK's logical widget sizes.
+     * Recomputed from the theme on every reload; never scale old values. */
+    screen_info->params->button_spacing *= screen_info->theme_scale;
+    screen_info->params->button_offset *= screen_info->theme_scale;
+    screen_info->params->frame_border_top *= screen_info->theme_scale;
+    screen_info->params->maximized_offset *= screen_info->theme_scale;
+    screen_info->params->title_vertical_offset_active *= screen_info->theme_scale;
+    screen_info->params->title_vertical_offset_inactive *= screen_info->theme_scale;
+    screen_info->params->title_horizontal_offset *= screen_info->theme_scale;
+    screen_info->params->shadow_delta_x *= screen_info->theme_scale;
+    screen_info->params->shadow_delta_y *= screen_info->theme_scale;
+    screen_info->params->shadow_delta_width *= screen_info->theme_scale;
+    screen_info->params->shadow_delta_height *= screen_info->theme_scale;
 
     g_free (theme);
 }
@@ -688,11 +706,14 @@ loadSettings (ScreenInfo *screen_info)
         {"click_to_focus", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_apps_only", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_draw_frame", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"cycle_frame_fill", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_raise", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_hidden", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_minimum", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_minimized", NULL, G_TYPE_BOOLEAN, TRUE},
         {"cycle_preview", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"cycle_peek_mode", NULL, G_TYPE_INT, TRUE},
+        {"cycle_peek_opacity", NULL, G_TYPE_INT, TRUE},
         {"cycle_tabwin_mode", NULL, G_TYPE_INT, FALSE},
         {"cycle_workspaces", NULL, G_TYPE_BOOLEAN, TRUE},
         {"double_click_action", NULL, G_TYPE_STRING, TRUE},
@@ -703,6 +724,12 @@ loadSettings (ScreenInfo *screen_info)
         {"focus_hint", NULL, G_TYPE_BOOLEAN, TRUE},
         {"focus_new", NULL, G_TYPE_BOOLEAN,TRUE},
         {"frame_opacity", NULL, G_TYPE_INT, TRUE},
+        {"blur_radius", NULL, G_TYPE_INT, TRUE},
+        {"blur_strength", NULL, G_TYPE_INT, TRUE},
+        {"minimize_effect", NULL, G_TYPE_INT, TRUE},
+        {"minimize_duration", NULL, G_TYPE_INT, TRUE},
+        {"window_effect", NULL, G_TYPE_INT, TRUE},
+        {"window_duration", NULL, G_TYPE_INT, TRUE},
         {"frame_border_top", NULL, G_TYPE_INT, TRUE},
         {"full_width_title", NULL, G_TYPE_BOOLEAN, TRUE},
         {"horiz_scroll_opacity", NULL, G_TYPE_BOOLEAN, FALSE},
@@ -732,6 +759,14 @@ loadSettings (ScreenInfo *screen_info)
         {"shadow_opacity", NULL, G_TYPE_INT, TRUE},
         {"show_app_icon", NULL, G_TYPE_BOOLEAN, TRUE},
         {"show_dock_shadow", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_enabled", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_docks", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_transparent_windows", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_previews", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_alt_tab", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_menus", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_tooltips", NULL, G_TYPE_BOOLEAN, TRUE},
+        {"blur_notifications", NULL, G_TYPE_BOOLEAN, TRUE},
         {"show_frame_shadow", NULL, G_TYPE_BOOLEAN, TRUE},
         {"show_popup_shadow", NULL, G_TYPE_BOOLEAN, TRUE},
         {"snap_resist", NULL, G_TYPE_BOOLEAN, TRUE},
@@ -793,6 +828,8 @@ loadSettings (ScreenInfo *screen_info)
         getBoolValue ("cycle_minimized", rc);
     screen_info->params->cycle_draw_frame =
         getBoolValue ("cycle_draw_frame", rc);
+    screen_info->params->cycle_frame_fill =
+        getBoolValue ("cycle_frame_fill", rc);
     screen_info->params->cycle_raise =
         getBoolValue ("cycle_raise", rc);
     screen_info->params->cycle_hidden =
@@ -829,6 +866,20 @@ loadSettings (ScreenInfo *screen_info)
         getBoolValue ("urgent_blink", rc);
     screen_info->params->frame_opacity =
         CLAMP (getIntValue ("frame_opacity", rc), 0, 100);
+    screen_info->params->blur_radius =
+        CLAMP (getIntValue ("blur_radius", rc), 1, 64);
+    screen_info->params->blur_strength =
+        CLAMP (getIntValue ("blur_strength", rc), 0, 100);
+    screen_info->params->minimize_effect =
+        CLAMP (getIntValue ("minimize_effect", rc), 0, 2);
+    screen_info->params->minimize_duration =
+        CLAMP (getIntValue ("minimize_duration", rc), 50, 1000);
+    screen_info->params->window_effect = CLAMP (getIntValue ("window_effect", rc), 0, 2);
+    screen_info->params->window_duration = CLAMP (getIntValue ("window_duration", rc), 50, 1000);
+    screen_info->params->cycle_peek_mode =
+        CLAMP (getIntValue ("cycle_peek_mode", rc), 0, 2);
+    screen_info->params->cycle_peek_opacity =
+        CLAMP (getIntValue ("cycle_peek_opacity", rc), 0, 100);
     screen_info->params->inactive_opacity =
         CLAMP (getIntValue ("inactive_opacity", rc), 0, 100);
     screen_info->params->move_opacity =
@@ -845,6 +896,22 @@ loadSettings (ScreenInfo *screen_info)
         getBoolValue ("show_app_icon", rc);
     screen_info->params->show_dock_shadow =
         getBoolValue ("show_dock_shadow", rc);
+    screen_info->params->blur_enabled =
+        getBoolValue ("blur_enabled", rc);
+    screen_info->params->blur_docks =
+        getBoolValue ("blur_docks", rc);
+    screen_info->params->blur_transparent_windows =
+        getBoolValue ("blur_transparent_windows", rc);
+    screen_info->params->blur_previews =
+        getBoolValue ("blur_previews", rc);
+    screen_info->params->blur_alt_tab =
+        getBoolValue ("blur_alt_tab", rc);
+    screen_info->params->blur_menus =
+        getBoolValue ("blur_menus", rc);
+    screen_info->params->blur_tooltips =
+        getBoolValue ("blur_tooltips", rc);
+    screen_info->params->blur_notifications =
+        getBoolValue ("blur_notifications", rc);
     screen_info->params->show_frame_shadow =
         getBoolValue ("show_frame_shadow", rc);
     screen_info->params->show_popup_shadow =
@@ -1031,11 +1098,57 @@ reloadScreenSettings (ScreenInfo *screen_info, int mask)
 {
     g_return_val_if_fail (screen_info, FALSE);
 
+    typedef struct { Window window; gint x, y, old_x, old_y; } FrameAnchor;
+    GArray *anchors = g_array_new (FALSE, FALSE, sizeof (FrameAnchor));
+    if ((mask & UPDATE_GRAVITY)
+        && (screen_info->theme_scale > 1 || screen_info->global_scale_toolkit > 0))
+    {
+        Client *c;
+        guint i;
+        for (c = screen_info->clients, i = 0; i < screen_info->client_count; c = c->next, i++)
+        {
+            if (CONSTRAINED_WINDOW (c)
+                && !FLAG_TEST (c->flags, CLIENT_FLAG_FULLSCREEN)
+                && !FLAG_TEST (c->flags, CLIENT_FLAG_MAXIMIZED) && c->tile_mode == TILE_NONE)
+            {
+                FrameAnchor anchor = { c->window, c->x, c->y, c->x, c->y };
+                clientCoordGravitate (c, c->gravity, REMOVE, &anchor.x, &anchor.y);
+                g_array_append_val (anchors, anchor);
+            }
+        }
+    }
+
     unloadSettings (screen_info);
     if (!loadSettings (screen_info))
     {
+        g_array_unref (anchors);
         return FALSE;
     }
+    for (guint i = 0; i < anchors->len; i++)
+    {
+        FrameAnchor *anchor = &g_array_index (anchors, FrameAnchor, i);
+        Client *c = myScreenGetClientFromWindow (screen_info, anchor->window, SEARCH_WINDOW);
+        if (c != NULL)
+        {
+            c->x = anchor->x;
+            c->y = anchor->y;
+            clientCoordGravitate (c, c->gravity, APPLY, &c->x, &c->y);
+            gint dx = c->x - anchor->old_x;
+            gint dy = c->y - anchor->old_y;
+            if (FLAG_TEST (c->xfwm_flags, XFWM_FLAG_SAVED_POS))
+            {
+                c->pre_relayout_x += dx;
+                c->pre_relayout_y += dy;
+            }
+            c->saved_geometry.x += dx;
+            c->saved_geometry.y += dy;
+            c->pre_fullscreen_geometry.x += dx;
+            c->pre_fullscreen_geometry.y += dy;
+            c->applied_geometry.x += dx;
+            c->applied_geometry.y += dy;
+        }
+    }
+    g_array_unref (anchors);
     if (mask)
     {
         clientUpdateAllFrames (screen_info, mask);
@@ -1070,6 +1183,26 @@ reloadSettings (DisplayInfo *display_info, int mask)
     return TRUE;
 }
 
+static void
+cb_global_scale_changed (XfconfChannel *channel, const gchar *name,
+                         const GValue *value, ScreenInfo *screen_info)
+{
+    if (strcmp (name, "/GlobalScale/Effective") == 0 && G_VALUE_HOLDS_INT (value))
+    {
+        gint percent = g_value_get_int (value);
+        compositorSetGlobalScale (screen_info, percent > 100 && percent < 200);
+    }
+    else if (strcmp (name, "/GlobalScale/ToolkitScale") == 0 && G_VALUE_HOLDS_INT (value))
+    {
+        /* Signal delivery can precede cache updates on another channel
+         * instance. Use the delivered value as the authoritative render scale. */
+        screen_info->global_scale_toolkit = g_value_get_int (value);
+        /* Also reload when a legacy GTK scale already had the same integer
+         * value, so no GDK scale-factor notification will be generated. */
+        reloadScreenSettings (screen_info, UPDATE_MAXIMIZE | UPDATE_GRAVITY | UPDATE_CACHE);
+    }
+}
+
 gboolean
 initSettings (ScreenInfo *screen_info)
 {
@@ -1097,6 +1230,15 @@ initSettings (ScreenInfo *screen_info)
     screen_info->xfwm4_channel = xfconf_channel_new(CHANNEL_XFWM);
     g_signal_connect (screen_info->xfwm4_channel, "property-changed",
                       G_CALLBACK (cb_xfwm4_channel_property_changed), screen_info);
+
+    screen_info->global_scale_channel = xfconf_channel_new ("displays");
+    screen_info->global_scale_toolkit = xfconf_channel_get_int (screen_info->global_scale_channel,
+                                                               "/GlobalScale/ToolkitScale", 0);
+    g_signal_connect (screen_info->global_scale_channel, "property-changed",
+                      G_CALLBACK (cb_global_scale_changed), screen_info);
+    gint global_percent = xfconf_channel_get_int (screen_info->global_scale_channel,
+                                                  "/GlobalScale/Effective", 100);
+    compositorSetGlobalScale (screen_info, global_percent > 100 && global_percent < 200);
 
     keymap = myDisplayGetKeymap (display_info);
     g_signal_connect (keymap, "keys-changed",
@@ -1139,11 +1281,26 @@ closeSettings (ScreenInfo *screen_info)
     g_return_if_fail (screen_info);
 
     unloadSettings (screen_info);
+    if (screen_info->global_scale_channel != NULL)
+    {
+        g_object_unref (screen_info->global_scale_channel);
+        screen_info->global_scale_channel = NULL;
+    }
 }
 
 static void
 cb_xfwm4_channel_property_changed(XfconfChannel *channel, const gchar *property_name, const GValue *value, ScreenInfo *screen_info)
 {
+    /* Presentation values are read by tabwin.c; they are not WM policy. */
+    if (g_str_has_prefix (property_name, "/general/cycle_background_") ||
+        g_str_has_prefix (property_name, "/general/cycle_selection_") ||
+        !strcmp (property_name, "/general/cycle_preview_width") ||
+        !strcmp (property_name, "/general/cycle_preview_height") ||
+        !strcmp (property_name, "/general/cycle_corner_radius") ||
+        !strcmp (property_name, "/general/cycle_border_width") ||
+        !strcmp (property_name, "/general/cycle_content_padding") ||
+        !strcmp (property_name, "/general/cycle_spacing"))
+        return;
     if (g_str_has_prefix(property_name, "/general/") == TRUE)
     {
         const gchar *name = &property_name[9];
@@ -1237,6 +1394,40 @@ cb_xfwm4_channel_property_changed(XfconfChannel *channel, const gchar *property_
                 {
                     screen_info->params->frame_opacity = CLAMP (g_value_get_int(value), 0, 100);
                     reloadScreenSettings (screen_info, UPDATE_FRAME);
+                }
+                else if (!strcmp (name, "minimize_effect"))
+                {
+                    screen_info->params->minimize_effect = CLAMP (g_value_get_int (value), 0, 2);
+                    compositorCancelAnimations (screen_info);
+                }
+                else if (!strcmp (name, "window_effect"))
+                {
+                    screen_info->params->window_effect = CLAMP (g_value_get_int (value), 0, 2);
+                    compositorCancelAnimations (screen_info);
+                }
+                else if (!strcmp (name, "window_duration"))
+                {
+                    screen_info->params->window_duration = CLAMP (g_value_get_int (value), 50, 1000);
+                }
+                else if (!strcmp (name, "minimize_duration"))
+                {
+                    screen_info->params->minimize_duration = CLAMP (g_value_get_int (value), 50, 1000);
+                }
+                else if (!strcmp (name, "cycle_peek_mode"))
+                {
+                    screen_info->params->cycle_peek_mode = CLAMP (g_value_get_int (value), 0, 2);
+                }
+                else if (!strcmp (name, "cycle_peek_opacity"))
+                {
+                    screen_info->params->cycle_peek_opacity = CLAMP (g_value_get_int (value), 0, 100);
+                }
+                else if (!strcmp (name, "blur_radius"))
+                {
+                    screen_info->params->blur_radius = CLAMP (g_value_get_int (value), 1, 64);
+                }
+                else if (!strcmp (name, "blur_strength"))
+                {
+                    screen_info->params->blur_strength = CLAMP (g_value_get_int (value), 0, 100);
                 }
                 else if (!strcmp (name, "inactive_opacity"))
                 {
@@ -1368,6 +1559,13 @@ cb_xfwm4_channel_property_changed(XfconfChannel *channel, const gchar *property_
                 else if (!strcmp (name, "cycle_draw_frame"))
                 {
                     screen_info->params->cycle_draw_frame = g_value_get_boolean (value);
+                    if (!screen_info->params->cycle_draw_frame)
+                        screen_info->params->cycle_frame_fill = FALSE;
+                }
+                else if (!strcmp (name, "cycle_frame_fill"))
+                {
+                    screen_info->params->cycle_frame_fill = g_value_get_boolean (value) &&
+                                                            screen_info->params->cycle_draw_frame;
                 }
                 else if (!strcmp (name, "cycle_raise"))
                 {
@@ -1418,6 +1616,48 @@ cb_xfwm4_channel_property_changed(XfconfChannel *channel, const gchar *property_
                 {
                     screen_info->params->show_dock_shadow = g_value_get_boolean (value);
                     reloadScreenSettings (screen_info, UPDATE_FRAME);
+                }
+                else if (!strcmp (name, "blur_enabled"))
+                {
+                    screen_info->params->blur_enabled = g_value_get_boolean (value);
+                    compositorResetGLRenderer (screen_info);
+                    compositorActivateScreen (screen_info, FALSE);
+                    compositorActivateScreen (screen_info, screen_info->params->use_compositing);
+                }
+                else if (!strcmp (name, "blur_docks"))
+                {
+                    screen_info->params->blur_docks = g_value_get_boolean (value);
+                    compositorResetGLRenderer (screen_info);
+                    compositorActivateScreen (screen_info, FALSE);
+                    compositorActivateScreen (screen_info, screen_info->params->use_compositing);
+                }
+                else if (!strcmp (name, "blur_transparent_windows"))
+                {
+                    screen_info->params->blur_transparent_windows = g_value_get_boolean (value);
+                    compositorResetGLRenderer (screen_info);
+                    compositorActivateScreen (screen_info, FALSE);
+                    compositorActivateScreen (screen_info, screen_info->params->use_compositing);
+                }
+                else if (!strcmp (name, "blur_previews") ||
+                         !strcmp (name, "blur_alt_tab") ||
+                         !strcmp (name, "blur_menus") ||
+                         !strcmp (name, "blur_tooltips") ||
+                         !strcmp (name, "blur_notifications"))
+                {
+                    gboolean active = g_value_get_boolean (value);
+                    if (!strcmp (name, "blur_previews"))
+                        screen_info->params->blur_previews = active;
+                    else if (!strcmp (name, "blur_alt_tab"))
+                        screen_info->params->blur_alt_tab = active;
+                    else if (!strcmp (name, "blur_menus"))
+                        screen_info->params->blur_menus = active;
+                    else if (!strcmp (name, "blur_tooltips"))
+                        screen_info->params->blur_tooltips = active;
+                    else
+                        screen_info->params->blur_notifications = active;
+                    compositorResetGLRenderer (screen_info);
+                    compositorActivateScreen (screen_info, FALSE);
+                    compositorActivateScreen (screen_info, screen_info->params->use_compositing);
                 }
                 else if (!strcmp (name, "show_frame_shadow"))
                 {

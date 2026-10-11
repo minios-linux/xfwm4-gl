@@ -189,6 +189,14 @@ struct _XfwmParams
     guint easy_click;
     int focus_delay;
     int frame_opacity;
+    int blur_radius;
+    int blur_strength;
+    int cycle_peek_mode;
+    int cycle_peek_opacity;
+    int minimize_effect;
+    int minimize_duration;
+    int window_effect;
+    int window_duration;
     int frame_border_top;
     int inactive_opacity;
     int maximized_offset;
@@ -215,6 +223,7 @@ struct _XfwmParams
     gboolean click_to_focus;
     gboolean cycle_apps_only;
     gboolean cycle_draw_frame;
+    gboolean cycle_frame_fill;
     gboolean cycle_raise;
     gboolean cycle_hidden;
     gboolean cycle_minimized;
@@ -234,6 +243,14 @@ struct _XfwmParams
     gboolean scroll_workspaces;
     gboolean show_app_icon;
     gboolean show_dock_shadow;
+    gboolean blur_enabled;
+    gboolean blur_docks;
+    gboolean blur_transparent_windows;
+    gboolean blur_previews;
+    gboolean blur_alt_tab;
+    gboolean blur_menus;
+    gboolean blur_tooltips;
+    gboolean blur_notifications;
     gboolean show_frame_shadow;
     gboolean show_popup_shadow;
     gboolean snap_resist;

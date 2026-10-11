@@ -1,0 +1,20 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Usage: tests/check-minimize /absolute/path/to/xfwm4 opengl|xrender output-dir
+# Always creates a private display, session bus, HOME and xfconf profile.
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+wm=$1
+backend=$2
+output=$3
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+mkdir -p "$work/home" "$work/config" "$work/cache" "$work/runtime" "$output"
+chmod 700 "$work/runtime"
+cc "$root/tests/animation-probe.c" -o "$work/probe" $(pkg-config --cflags --libs x11)
+export HOME="$work/home" XDG_CONFIG_HOME="$work/config" XDG_CACHE_HOME="$work/cache"
+export XDG_RUNTIME_DIR="$work/runtime" NO_AT_BRIDGE=1 XFWM4_ANIMATION_DEBUG=1
+export XFWM4_ANIMATION_TEST_SESSION=1 XFWM4_GL_BACKEND=glx LIBGL_ALWAYS_SOFTWARE=1
+dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24 +extension GLX +extension Composite' \
+    /usr/bin/python3 "$root/tests/check-minimize.py" --wm "$wm" --probe "$work/probe" \
+    --backend "$backend" --output "$output"

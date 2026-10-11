@@ -47,6 +47,9 @@
 #include "tabwin.h"
 #include "transients.h"
 #include "wireframe.h"
+#ifdef HAVE_COMPOSITOR
+#include "compositor-effects.h"
+#endif
 #include "workspaces.h"
 #include "event_filter.h"
 
@@ -56,6 +59,8 @@ struct _ClientCycleData
     Tabwin *tabwin;
     WireFrame *wireframe;
     gboolean inside;
+    gboolean peek_active;
+    guint peek_timer;
 };
 
 static gint
@@ -222,15 +227,42 @@ clientCycleActivate (Client *c)
     clientCycleFocusAndRaise (c);
 }
 
+#ifdef HAVE_COMPOSITOR
+/* Reuse GL Peek's compositor path for keyboard-driven Alt+Tab. A repeating
+ * update keeps the existing watchdog alive while modifier keys are held. */
+static gboolean
+clientCyclePeekPulse (gpointer user_data)
+{
+    ClientCycleData *passdata = (ClientCycleData *) user_data;
+    Client *c = tabwinGetSelected (passdata->tabwin);
+
+    if (!c || !passdata->peek_active)
+    {
+        passdata->peek_timer = 0;
+        return G_SOURCE_REMOVE;
+    }
+    compositorSetPeek (c->screen_info, c->window,
+                   c->screen_info->params->cycle_peek_mode,
+                   c->screen_info->params->cycle_peek_opacity, 180);
+    return G_SOURCE_CONTINUE;
+}
+#endif /* HAVE_COMPOSITOR */
+
 static gboolean
 clientCycleUpdateWireframe (Client *c, ClientCycleData *passdata)
 {
     if (c)
     {
-        if (c->screen_info->params->cycle_raise)
+        if (c->screen_info->params->cycle_raise && !passdata->peek_active)
         {
           clientRaise (c, None);
         }
+#ifdef HAVE_COMPOSITOR
+        if (passdata->peek_active)
+            compositorSetPeek (c->screen_info, c->window,
+                           c->screen_info->params->cycle_peek_mode,
+                           c->screen_info->params->cycle_peek_opacity, 180);
+#endif
         if (passdata->wireframe)
         {
             wireframeUpdate (c, passdata->wireframe);
@@ -520,22 +552,59 @@ clientCycle (Client * c, XfwmEventKey *event)
 
     passdata.wireframe = NULL;
     passdata.inside = FALSE;
+    passdata.peek_timer = 0;
+    passdata.peek_active = FALSE;
+#ifdef HAVE_COMPOSITOR
+    passdata.peek_active = screen_info->compositor_active &&
+                           screen_info->params->cycle_peek_mode != 0;
+#endif
 
     TRACE ("entering cycle loop");
-    if (screen_info->params->cycle_raise)
+    if (screen_info->params->cycle_raise && !passdata.peek_active)
     {
       clientRaise ((Client *) selected->data, None);
     }
-    if (screen_info->params->cycle_draw_frame)
+    if (screen_info->params->cycle_draw_frame || !passdata.peek_active)
     {
-        passdata.wireframe = wireframeCreate ((Client *) selected->data);
+        /* Alt+Tab and tasklist now use the same filled/outline renderer.
+         * The Off effect still requires a visible selection outline. */
+        passdata.wireframe = wireframeCreateWithFill (
+            (Client *) selected->data,
+            screen_info->params->cycle_draw_frame &&
+            screen_info->params->cycle_frame_fill);
     }
     passdata.tabwin = tabwinCreate (&client_list, selected, screen_info->params->cycle_workspaces);
+#ifdef HAVE_COMPOSITOR
+    if (screen_info->compositor_active)
+    {
+        /* Alt+Tab takes ownership of Peek even in Off mode. Otherwise a
+         * lingering panel request can leave the exact same effect visible
+         * for Off/Dim/Hide when the keyboard switcher opens. */
+        screen_info->cycle_peek_active = TRUE;
+        compositorSetPeek (screen_info, None, 0, 0, 180);
+        if (passdata.peek_active && passdata.tabwin)
+        {
+            clientCyclePeekPulse (&passdata);
+            passdata.peek_timer = g_timeout_add (160, clientCyclePeekPulse, &passdata);
+        }
+    }
+#endif
     eventFilterPush (display_info->xfilter, clientCycleEventFilter, &passdata);
 
     gtk_main ();
     eventFilterPop (display_info->xfilter);
     TRACE ("leaving cycle loop");
+#ifdef HAVE_COMPOSITOR
+    if (passdata.peek_timer)
+        g_source_remove (passdata.peek_timer);
+    /* Always relinquish the compositor effect when leaving Alt+Tab,
+     * including after an explicit Off cycle. */
+    if (screen_info->cycle_peek_active)
+    {
+        compositorSetPeek (screen_info, None, 0, 0, 180);
+        screen_info->cycle_peek_active = FALSE;
+    }
+#endif
     if (passdata.wireframe)
     {
         wireframeDelete (passdata.wireframe);

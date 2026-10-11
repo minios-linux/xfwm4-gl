@@ -43,6 +43,7 @@
 #include "client.h"
 #include "compositor.h"
 #include "hints.h"
+#include "xfwm-tabwin-preview.h"
 
 static void
 downsize_ratio (guint *width, guint *height, guint dest_w, guint dest_h)
@@ -582,28 +583,22 @@ GdkPixbuf *
 getClientIcon (Client *c, guint width, guint height)
 {
     ScreenInfo *screen_info;
-    GdkPixbuf *app_content;
-    GdkPixbuf *small_icon;
+    GdkPixbuf *app_content = NULL;
+    GdkPixbuf *small_icon = NULL;
     GdkPixbuf *icon_pixbuf;
-    GdkPixbuf *icon_pixbuf_stated;
     guint small_icon_size;
-    guint app_icon_width, app_icon_height;
+    guint app_icon_width = width, app_icon_height = height;
     Pixmap pixmap;
 
     g_return_val_if_fail (c != NULL, NULL);
 
     screen_info = c->screen_info;
-    icon_pixbuf = NULL;
-    app_icon_width = width; /* Set to 0 to use gdk pixbuf scaling */
-    app_icon_height = height; /* Set to 0 to use gdk pixbuf scaling */
-
-    icon_pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8, width, height);
-    gdk_pixbuf_fill (icon_pixbuf, 0x00);
-
-    pixmap = compositorGetWindowPixmapAtSize (screen_info, c->frame, &app_icon_width, &app_icon_height);
+    pixmap = compositorGetWindowPixmapAtSize (screen_info, c->frame,
+                                              &app_icon_width, &app_icon_height);
     if (pixmap != None)
     {
-        app_content = try_pixmap_and_mask (screen_info, pixmap, None, width, height);
+        app_content = try_pixmap_and_mask (screen_info, pixmap, None,
+                                           width, height);
         XFreePixmap (myScreenGetXDisplay (screen_info), pixmap);
     }
     else
@@ -611,41 +606,27 @@ getClientIcon (Client *c, guint width, guint height)
         app_content = default_icon_at_size (screen_info->gscr, width, height);
     }
 
-    if (app_content != NULL)
-    {
-        app_icon_width = (guint) gdk_pixbuf_get_width (app_content);
-        app_icon_height = (guint) gdk_pixbuf_get_height (app_content);
+    small_icon_size = MIN (48, MIN (width / 4, height / 4));
+    if (small_icon_size)
+        small_icon = getAppIcon (c, small_icon_size, small_icon_size);
 
-        gdk_pixbuf_copy_area (app_content, 0, 0, app_icon_width, app_icon_height, icon_pixbuf,
-                              (width - app_icon_width) / 2, (height - app_icon_height) / 2);
+    /* Exactly the same centring, alpha canvas and bottom badge as tasklist. */
+    icon_pixbuf = xfwm_tabwin_compose_pixbuf (app_content, small_icon,
+                                                width, height);
+    if (app_content)
         g_object_unref (app_content);
-    }
-
-    small_icon_size = MIN (width / 4, height / 4);
-    small_icon_size = MIN (small_icon_size, 48);
-
-    small_icon = getAppIcon (c, small_icon_size, small_icon_size);
-
-    if (small_icon != NULL)
-    {
-        gdk_pixbuf_composite (small_icon, icon_pixbuf,
-                              (width - small_icon_size) / 2, height - small_icon_size,
-                              small_icon_size, small_icon_size,
-                              (width - small_icon_size) / 2, height - small_icon_size,
-                              1.0, 1.0,
-                              GDK_INTERP_BILINEAR,
-                              0xff);
-
+    if (small_icon)
         g_object_unref (small_icon);
-    }
 
-    if (FLAG_TEST (c->flags, CLIENT_FLAG_ICONIFIED))
+    if (icon_pixbuf && FLAG_TEST (c->flags, CLIENT_FLAG_ICONIFIED))
     {
-        icon_pixbuf_stated = gdk_pixbuf_copy (icon_pixbuf);
-        gdk_pixbuf_saturate_and_pixelate (icon_pixbuf, icon_pixbuf_stated, 0.55, TRUE);
-        g_object_unref (icon_pixbuf);
-        icon_pixbuf = icon_pixbuf_stated;
+        GdkPixbuf *stated = gdk_pixbuf_copy (icon_pixbuf);
+        if (stated)
+        {
+            gdk_pixbuf_saturate_and_pixelate (icon_pixbuf, stated, 0.55, TRUE);
+            g_object_unref (icon_pixbuf);
+            icon_pixbuf = stated;
+        }
     }
-
     return icon_pixbuf;
 }
