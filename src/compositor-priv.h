@@ -168,6 +168,7 @@ struct _CWindow
     struct _XfwmXRenderAnimation *xr_animation, *xr_close_snapshot;
     gboolean xr_snapshot_dirty;
     gboolean xr_open_pending;
+    gboolean whisker_menu;
 
 #ifdef HAVE_EPOXY
     struct _XfwmGLAnimation *gl_animation;

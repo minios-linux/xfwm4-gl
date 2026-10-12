@@ -113,6 +113,7 @@ typedef struct _XfwmGLAnimation
     guint workspace;
     gboolean sticky;
     GArray *above_windows; /* XIDs only: closed clients/CWindows are not retained. */
+    gboolean whisker;
 } XfwmGLAnimation;
 
 typedef struct
@@ -3009,6 +3010,9 @@ static gboolean
 window_animation_allowed (CWindow *cw)
 {
     ScreenInfo *screen_info = cw->screen_info;
+    if (cw->whisker_menu)
+        return screen_info->compositor_active && screen_info->use_gl_render &&
+               WIN_IS_REDIRECTED (cw);
     return screen_info->compositor_active && screen_info->use_gl_render &&
            screen_info->params->window_effect != 0 && cw->c &&
            !(cw->c->type & (WINDOW_DESKTOP | WINDOW_DOCK)) &&
@@ -3022,9 +3026,7 @@ window_animation_allowed (CWindow *cw)
 static void
 window_animation_geometry (ScreenInfo *screen_info, XfwmGLAnimation *a)
 {
-    XfwmAnimationRect source = {a->source.x, a->source.y, a->source.width, a->source.height};
-    XfwmAnimationRect target = xfwm_animation_window_target (&source, screen_info->params->window_effect);
-    a->icon = (cairo_rectangle_int_t) {target.x, target.y, target.width, target.height};
+    compositorWindowTarget (screen_info, &a->source, a->whisker, &a->icon);
     animation_update_bounds (a);
 }
 
@@ -3054,11 +3056,27 @@ xfwmGLAnimateOpen (CWindow *cw)
 {
     if (!window_animation_allowed (cw) || !animation_make_current (cw->screen_info))
         return;
+    if (cw->whisker_menu)
+    {
+        XfwmGLData *data = gl_data (cw->screen_info);
+        for (GList *li = data->closing_animations; li; )
+        {
+            GList *next = li->next;
+            XfwmGLAnimation *old = li->data;
+            if (old->whisker && old->window == cw->id)
+            {
+                animation_free (cw->screen_info, old, TRUE);
+                data->closing_animations = g_list_delete_link (data->closing_animations, li);
+            }
+            li = next;
+        }
+    }
     animation_release (cw, TRUE);
     XfwmGLAnimation *a = g_new0 (XfwmGLAnimation, 1);
     a->phase = GL_ANIMATION_OPEN;
+    a->whisker = cw->whisker_menu;
     a->window = cw->id;
-    a->effect = XFWM_ANIMATION_SCALE_FADE;
+    a->effect = a->whisker ? XFWM_ANIMATION_SLIDE : XFWM_ANIMATION_SCALE_FADE;
     a->from = a->progress = 1.0;
     a->to = 0.0;
     a->pending = TRUE;
@@ -3083,7 +3101,7 @@ xfwmGLAnimateClose (CWindow *cw)
     GList *list;
 
     if (!window_animation_allowed (cw) || !WIN_IS_VIEWABLE (cw) || !data ||
-        compositorPeek (screen_info)->phase > 0.001f || !animation_make_current (screen_info))
+        (!cw->whisker_menu && compositorPeek (screen_info)->phase > 0.001f) || !animation_make_current (screen_info))
         return;
     /* Do not turn an interrupted restore into a full-sized closing flash. */
     if (cw->gl_animation && cw->gl_animation->phase == GL_ANIMATION_MINIMIZE &&
@@ -3109,10 +3127,11 @@ xfwmGLAnimateClose (CWindow *cw)
     }
     a->phase = GL_ANIMATION_CLOSE;
     a->window = cw->id;
-    a->workspace = cw->c->win_workspace;
-    a->sticky = FLAG_TEST (cw->c->flags, CLIENT_FLAG_STICKY);
+    a->whisker = cw->whisker_menu;
+    a->workspace = cw->c ? cw->c->win_workspace : screen_info->current_ws;
+    a->sticky = a->whisker || FLAG_TEST (cw->c->flags, CLIENT_FLAG_STICKY);
     a->cached = a->pending = FALSE;
-    a->effect = XFWM_ANIMATION_SCALE_FADE;
+    a->effect = a->whisker ? XFWM_ANIMATION_SLIDE : XFWM_ANIMATION_SCALE_FADE;
     a->from = a->progress = from;
     a->to = 1.0;
     a->started = g_get_monotonic_time ();
@@ -3285,12 +3304,13 @@ advance_animations (ScreenInfo *screen_info, cairo_region_t *damage)
         }
         /* Include both the old and new image, even on the completion frame. */
         cairo_region_union_rectangle (damage, &animation->bounds);
-        if (!cw->c || screen_info->show_desktop ||
+        if ((!cw->c && !animation->whisker) ||
+            (!animation->whisker && (screen_info->show_desktop ||
             (animation->phase == GL_ANIMATION_MINIMIZE
              ? screen_info->params->minimize_effect == XFWM_ANIMATION_NONE
              : screen_info->params->window_effect == 0) ||
             (!FLAG_TEST (cw->c->flags, CLIENT_FLAG_STICKY) &&
-             cw->c->win_workspace != screen_info->current_ws))
+              cw->c->win_workspace != screen_info->current_ws))))
         {
             animation_release (cw, FALSE);
             continue;
@@ -3337,7 +3357,8 @@ advance_animations (ScreenInfo *screen_info, cairo_region_t *damage)
         if (now - animation->started >= animation->duration)
         {
             gl_data (screen_info)->capture_final = TRUE;
-            if (animation->phase == GL_ANIMATION_OPEN && screen_info->params->window_effect != 0)
+            if (animation->phase == GL_ANIMATION_OPEN &&
+                (animation->whisker || screen_info->params->window_effect != 0))
             {
                 xfwmGLFreeCloseSnapshot (cw);
                 animation->cached = TRUE;
@@ -3345,7 +3366,7 @@ advance_animations (ScreenInfo *screen_info, cairo_region_t *damage)
                 cw->gl_animation = NULL;
                 animation_limit_cache (screen_info);
             }
-            else if (animation->to >= 1.0 &&
+            else if (cw->c && animation->to >= 1.0 &&
                 FLAG_TEST (cw->c->flags, CLIENT_FLAG_ICONIFIED) &&
                 animation->texture != 0)
             {
@@ -3370,8 +3391,8 @@ advance_animations (ScreenInfo *screen_info, cairo_region_t *damage)
         GList *next = list->next;
         XfwmGLAnimation *a = list->data;
         cairo_region_union_rectangle (damage, &a->bounds);
-        if (screen_info->show_desktop || screen_info->params->window_effect == 0 ||
-            compositorPeek (screen_info)->phase > 0.001f || (!a->sticky && a->workspace != screen_info->current_ws) ||
+        if ((!a->whisker && (screen_info->show_desktop || screen_info->params->window_effect == 0 ||
+            compositorPeek (screen_info)->phase > 0.001f)) || (!a->sticky && a->workspace != screen_info->current_ws) ||
             now - a->started >= a->duration)
         {
             data->capture_final = TRUE;

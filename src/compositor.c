@@ -4112,6 +4112,14 @@ map_win (CWindow *cw)
 
     cw->viewable = TRUE;
     cw->damaged = FALSE;
+    cw->whisker_menu = compositorIsWhiskerMenu (cw);
+    if (cw->whisker_menu)
+    {
+        if (!cw->screen_info->use_gl_render) xfwmXRAnimateOpen (cw);
+#ifdef HAVE_EPOXY
+        else xfwmGLAnimateOpen (cw);
+#endif
+    }
     if (cw->xr_open_pending && !cw->screen_info->use_gl_render)
     {
         cw->xr_open_pending = FALSE;
@@ -4146,6 +4154,13 @@ unmap_win (CWindow *cw)
         damage_win (cw);
     }
 
+    if (cw->whisker_menu)
+    {
+        if (!cw->screen_info->use_gl_render) xfwmXRAnimateClose (cw);
+#ifdef HAVE_EPOXY
+        else xfwmGLAnimateClose (cw);
+#endif
+    }
     cw->viewable = FALSE;
     cw->damaged = FALSE;
     if (WIN_IS_REDIRECTED(cw))
@@ -6970,7 +6985,7 @@ compositorAnimateOpen (Client *c)
     if (c && c->screen_info->compositor_active && !c->screen_info->use_gl_render)
     {
         CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
-        if (cw)
+        if (cw && !cw->whisker_menu)
         {
             cw->xr_open_pending = TRUE;
             if (WIN_IS_VIEWABLE (cw))
@@ -6982,7 +6997,7 @@ compositorAnimateOpen (Client *c)
     if (c && c->screen_info->compositor_active && c->screen_info->use_gl_render)
     {
         CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
-        if (cw)
+        if (cw && !cw->whisker_menu)
         {
             cw->gl_open_pending = TRUE;
             if (WIN_IS_VIEWABLE (cw))
@@ -7002,14 +7017,14 @@ compositorAnimateClose (Client *c)
     if (c && c->screen_info->compositor_active && !c->screen_info->use_gl_render)
     {
         CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
-        if (cw) xfwmXRAnimateClose (cw);
+        if (cw && !cw->whisker_menu) xfwmXRAnimateClose (cw);
     }
 #endif
 #if defined(HAVE_COMPOSITOR) && defined(HAVE_EPOXY)
     if (c && c->screen_info->compositor_active && c->screen_info->use_gl_render)
     {
         CWindow *cw = find_cwindow_in_display (c->screen_info->display_info, c->frame);
-        if (cw)
+        if (cw && !cw->whisker_menu)
             xfwmGLAnimateClose (cw);
     }
 #endif

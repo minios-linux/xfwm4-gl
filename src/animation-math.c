@@ -77,7 +77,7 @@ xfwm_animation_vertex (XfwmAnimationEffect effect, XfwmAnimationEdge edge,
     {
         return;
     }
-    if (effect == XFWM_ANIMATION_SCALE_FADE)
+    if (effect == XFWM_ANIMATION_SCALE_FADE || effect == XFWM_ANIMATION_SLIDE)
     {
         *x = lerp (*x, icon->x + u * icon->width, p);
         *y = lerp (*y, icon->y + v * icon->height, p);
@@ -137,6 +137,7 @@ xfwm_animation_opacity (XfwmAnimationEffect effect, double progress)
 {
     double p = xfwm_animation_ease (progress);
     /* Lamp retains its texture until the final part of the collapse. */
+    if (effect == XFWM_ANIMATION_SLIDE) return 1.0;
     return effect == XFWM_ANIMATION_MAGIC_LAMP
            ? 1.0 - unit ((p - 0.85) / 0.15) : 1.0 - p;
 }

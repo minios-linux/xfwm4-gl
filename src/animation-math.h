@@ -9,7 +9,8 @@ typedef enum
 {
     XFWM_ANIMATION_NONE,
     XFWM_ANIMATION_SCALE_FADE,
-    XFWM_ANIMATION_MAGIC_LAMP
+    XFWM_ANIMATION_MAGIC_LAMP,
+    XFWM_ANIMATION_SLIDE
 } XfwmAnimationEffect;
 
 typedef enum

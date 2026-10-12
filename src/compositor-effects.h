@@ -20,5 +20,8 @@ CWindow *compositorPeekWindow (ScreenInfo *, Window);
 gboolean compositorEffectWindow (CWindow *);
 double compositorPeekFactor (CWindow *);
 void compositorIconTarget (CWindow *, cairo_rectangle_int_t *, XfwmAnimationEdge *);
+gboolean compositorIsWhiskerMenu (CWindow *);
+void compositorWindowTarget (ScreenInfo *, const cairo_rectangle_int_t *,
+                              gboolean whisker, cairo_rectangle_int_t *);
 #endif
 #endif

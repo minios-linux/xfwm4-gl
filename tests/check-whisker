@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+mkdir -p "$work/home" "$work/config" "$work/cache" "$work/runtime"
+chmod 700 "$work/runtime"
+export HOME="$work/home" XDG_CONFIG_HOME="$work/config" XDG_CACHE_HOME="$work/cache" XDG_RUNTIME_DIR="$work/runtime"
+export NO_AT_BRIDGE=1 XFWM4_ANIMATION_TEST_SESSION=1
+dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24 +extension Composite' \
+    python3 "$root/tests/check-whisker.py" "$1"

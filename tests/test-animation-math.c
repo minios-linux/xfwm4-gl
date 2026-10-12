@@ -68,6 +68,21 @@ main (void)
     XfwmAnimationRect scale = xfwm_animation_window_target (&window, 1);
     assert (fade.x == window.x && fade.y == window.y && fade.width == window.width && fade.height == window.height);
     assert (scale.width == 460 && scale.height == 322 && scale.x == 100 && scale.y == 114);
+    XfwmAnimationRect hidden = window;
+    hidden.y = 800;
+    for (int step = 0; step <= 100; ++step)
+    {
+        double x1, y1, x2, y2, progress = step / 100.0;
+        xfwm_animation_vertex (XFWM_ANIMATION_SLIDE, XFWM_ANIMATION_BOTTOM,
+                               &window, &hidden, progress, 0, 0, &x1, &y1);
+        xfwm_animation_vertex (XFWM_ANIMATION_SLIDE, XFWM_ANIMATION_BOTTOM,
+                               &window, &hidden, progress, 1, 1, &x2, &y2);
+        assert (x1 == window.x && x2 - x1 == window.width);
+        assert (fabs (y2 - y1 - window.height) < 1e-9);
+        assert (y1 >= window.y && y1 <= hidden.y);
+        assert (xfwm_animation_opacity (XFWM_ANIMATION_SLIDE, progress) == 1);
+        if (step == 100) assert (y1 == hidden.y);
+    }
     XfwmAnimationRect sources[] = {
         {80, 100, 500, 350}, {0, 0, 1366, 718}, {200, 350, 600, 450},
         {-150, -100, 700, 600}, {1920, 120, 900, 800}, {0, 0, 1, 1}

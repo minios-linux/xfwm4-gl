@@ -15,6 +15,7 @@ EXTRA_DIST =								\
 	tests/cursor-probe.c
 
 EXTRA_DIST += tests/check-peek tests/check-peek.py \
+	tests/check-whisker tests/check-whisker.py \
 	tests/check-window-lifecycle tests/check-window-lifecycle.py \
 	tests/check-minimize tests/check-minimize.py tests/animation-probe.c
 
@@ -24,7 +25,8 @@ check-local:
 	@set -e; out=$$(mktemp -d); trap 'rm -rf "$$out"' EXIT HUP INT TERM; \
 	$(SHELL) $(srcdir)/tests/check-window-lifecycle "$(abs_builddir)/src/xfwm4-check" xrender "$$out/lifecycle"; \
 	$(SHELL) $(srcdir)/tests/check-peek "$(abs_builddir)/src/xfwm4-check" xrender "$$out/peek"; \
-	$(SHELL) $(srcdir)/tests/check-minimize "$(abs_builddir)/src/xfwm4-check" xrender "$$out/minimize"
+	$(SHELL) $(srcdir)/tests/check-minimize "$(abs_builddir)/src/xfwm4-check" xrender "$$out/minimize"; \
+	$(SHELL) $(srcdir)/tests/check-whisker "$(abs_builddir)/src/xfwm4-check"
 
 SUBDIRS = 								\
 	defaults 							\

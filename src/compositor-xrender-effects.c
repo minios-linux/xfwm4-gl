@@ -23,6 +23,7 @@ typedef struct _XfwmXRenderAnimation
     guint workspace, frames;
     Window window;
     GArray *above;
+    gboolean whisker;
 } XRAnimation;
 
 typedef struct { GList *closing; guint timer; gint64 capture_last; guint capture_sequence; } XRData;
@@ -164,6 +165,9 @@ static gboolean xr_snapshot (CWindow *cw, XRAnimation *a, gboolean evict)
 }
 static gboolean xr_allowed (CWindow *cw)
 {
+    if (cw->whisker_menu)
+        return cw->screen_info->compositor_active && !cw->screen_info->use_gl_render &&
+               WIN_IS_REDIRECTED (cw);
     return cw->screen_info->compositor_active && !cw->screen_info->use_gl_render &&
            compositorEffectWindow (cw) && WIN_IS_REDIRECTED (cw) &&
            !cw->screen_info->show_desktop &&
@@ -177,9 +181,7 @@ static void xr_target (CWindow *cw, XRAnimation *a)
     if (a->phase == XR_MINIMIZE) compositorIconTarget (cw, &a->target, &a->edge);
     else
     {
-        XfwmAnimationRect source = {a->source.x, a->source.y, a->source.width, a->source.height};
-        XfwmAnimationRect target = xfwm_animation_window_target (&source, cw->screen_info->params->window_effect);
-        a->target = (cairo_rectangle_int_t) {target.x, target.y, target.width, target.height};
+        compositorWindowTarget (cw->screen_info, &a->source, a->whisker, &a->target);
     }
     xr_bounds (a);
 }
@@ -192,7 +194,8 @@ static void xr_advance (ScreenInfo *screen)
         XRAnimation *a = cw->xr_animation;
         if (!a || a->cached) continue;
         xr_damage (screen, a);
-        if (!xr_allowed (cw) || (a->phase == XR_MINIMIZE ? screen->params->minimize_effect != 1 : screen->params->window_effect == 0))
+        if (!xr_allowed (cw) || (!a->whisker &&
+            (a->phase == XR_MINIMIZE ? screen->params->minimize_effect != 1 : screen->params->window_effect == 0)))
         { xfwmXRCancelWindow (cw); continue; }
         if (a->pending)
         {
@@ -215,7 +218,7 @@ static void xr_advance (ScreenInfo *screen)
                 xr_free (screen, cw->xr_close_snapshot);
                 cw->xr_close_snapshot = a; cw->xr_animation = NULL; a->cached = TRUE;
             }
-            else if (a->to >= 1 && FLAG_TEST (cw->c->flags, CLIENT_FLAG_ICONIFIED)) a->cached = TRUE;
+            else if (cw->c && a->to >= 1 && FLAG_TEST (cw->c->flags, CLIENT_FLAG_ICONIFIED)) a->cached = TRUE;
             else xfwmXRCancelWindow (cw);
         }
     }
@@ -225,7 +228,7 @@ static void xr_advance (ScreenInfo *screen)
         GList *next = li->next;
         XRAnimation *a = li->data;
         xr_damage (screen, a);
-        if (screen->show_desktop || screen->params->window_effect == 0 ||
+        if ((!a->whisker && (screen->show_desktop || screen->params->window_effect == 0)) ||
             (!a->sticky && a->workspace != screen->current_ws) || now - a->started >= a->duration)
         { xr_free (screen, a); data->closing = g_list_delete_link (data->closing, li); }
         else a->progress = xr_progress (a, now);
@@ -256,11 +259,24 @@ void xfwmXRAnimateOpen (CWindow *cw)
 {
     if (g_getenv ("XFWM4_ANIMATION_DEBUG"))
         g_message ("xrender open request 0x%lx: allowed=%d effect=%d", cw->id, xr_allowed (cw), cw->screen_info->params->window_effect);
-    if (!xr_allowed (cw) || cw->screen_info->params->window_effect == 0 ||
-        FLAG_TEST (cw->c->flags, CLIENT_FLAG_ICONIFIED)) return;
+    if (!xr_allowed (cw) || (!cw->whisker_menu &&
+        (cw->screen_info->params->window_effect == 0 || FLAG_TEST (cw->c->flags, CLIENT_FLAG_ICONIFIED)))) return;
     xfwmXRCancelWindow (cw);
     XRAnimation *a = g_new0 (XRAnimation, 1);
+    if (cw->whisker_menu)
+    {
+        XRData *data = xr_data (cw->screen_info);
+        for (GList *li = data->closing; li; )
+        {
+            GList *next = li->next;
+            XRAnimation *old = li->data;
+            if (old->whisker && old->window == cw->id)
+            { xr_free (cw->screen_info, old); data->closing = g_list_delete_link (data->closing, li); }
+            li = next;
+        }
+    }
     a->phase = XR_OPEN; a->pending = TRUE; a->from = a->progress = 1;
+    a->whisker = cw->whisker_menu;
     a->duration = xfwm_animation_duration (cw->screen_info->params->window_duration, 1, 0);
     a->started = a->requested = g_get_monotonic_time ();
     a->source = (cairo_rectangle_int_t) {cw->attr.x, cw->attr.y, cw->attr.width, cw->attr.height};
@@ -268,7 +284,8 @@ void xfwmXRAnimateOpen (CWindow *cw)
 }
 void xfwmXRCacheClose (CWindow *cw)
 {
-    if (!xr_allowed (cw) || !WIN_IS_PAINTABLE (cw) || cw->screen_info->params->window_effect == 0 || cw->xr_animation ||
+    if (!xr_allowed (cw) || !WIN_IS_PAINTABLE (cw) ||
+        (!cw->whisker_menu && cw->screen_info->params->window_effect == 0) || cw->xr_animation ||
         (cw->xr_close_snapshot && !cw->xr_snapshot_dirty)) return;
     XRAnimation *a = cw->xr_close_snapshot;
     if (!a) a = g_new0 (XRAnimation, 1);
@@ -277,8 +294,10 @@ void xfwmXRCacheClose (CWindow *cw)
 }
 void xfwmXRAnimateClose (CWindow *cw)
 {
-    if (!xr_allowed (cw) || !WIN_IS_VIEWABLE (cw) || cw->screen_info->params->window_effect == 0 ||
-        compositorPeek (cw->screen_info)->phase > .001) return;
+    if (g_getenv ("XFWM4_ANIMATION_DEBUG") && cw->whisker_menu)
+        g_message ("Whisker close: viewable=%d snapshot=%p active=%p", cw->viewable, cw->xr_close_snapshot, cw->xr_animation);
+    if (!xr_allowed (cw) || !WIN_IS_VIEWABLE (cw) || (!cw->whisker_menu &&
+        (cw->screen_info->params->window_effect == 0 || compositorPeek (cw->screen_info)->phase > .001))) return;
     XRAnimation *a = cw->xr_animation;
     double from = 0;
     if (a && a->phase == XR_MINIMIZE && !a->cached) return;
@@ -287,7 +306,9 @@ void xfwmXRAnimateClose (CWindow *cw)
     else { a = cw->xr_close_snapshot; cw->xr_close_snapshot = NULL; }
     if (!a || !a->picture) { xr_free (cw->screen_info, a); return; }
     a->phase = XR_CLOSE; a->cached = a->pending = FALSE;
-    a->window = cw->id; a->workspace = cw->c->win_workspace; a->sticky = FLAG_TEST (cw->c->flags, CLIENT_FLAG_STICKY);
+    a->whisker = cw->whisker_menu;
+    a->window = cw->id; a->workspace = cw->c ? cw->c->win_workspace : cw->screen_info->current_ws;
+    a->sticky = a->whisker || FLAG_TEST (cw->c->flags, CLIENT_FLAG_STICKY);
     a->from = a->progress = from; a->to = 1; a->started = g_get_monotonic_time ();
     a->duration = xfwm_animation_duration (cw->screen_info->params->window_duration, from, 1);
     xr_target (cw, a); a->above = g_array_new (FALSE, FALSE, sizeof (Window));
@@ -340,9 +361,10 @@ static void xr_draw (ScreenInfo *screen, Picture buffer, XserverRegion clip, XRA
     double x1 = source.x, y1 = source.y, x2 = x1 + source.width, y2 = y1 + source.height;
     if (moving)
     {
-        xfwm_animation_vertex (XFWM_ANIMATION_SCALE_FADE, a->edge, &source, &target, a->progress, 0, 0, &x1, &y1);
-        xfwm_animation_vertex (XFWM_ANIMATION_SCALE_FADE, a->edge, &source, &target, a->progress, 1, 1, &x2, &y2);
-        opacity *= xfwm_animation_opacity (XFWM_ANIMATION_SCALE_FADE, a->progress);
+        XfwmAnimationEffect effect = a->whisker ? XFWM_ANIMATION_SLIDE : XFWM_ANIMATION_SCALE_FADE;
+        xfwm_animation_vertex (effect, a->edge, &source, &target, a->progress, 0, 0, &x1, &y1);
+        xfwm_animation_vertex (effect, a->edge, &source, &target, a->progress, 1, 1, &x2, &y2);
+        opacity *= xfwm_animation_opacity (effect, a->progress);
     }
     if (opacity <= .0001 || x2 <= x1 || y2 <= y1) return;
     gint x = floor (x1), y = floor (y1), width = MAX (1, (gint) ceil (x2) - x), height = MAX (1, (gint) ceil (y2) - y);
@@ -448,7 +470,6 @@ gboolean xfwmXRPaintEffects (ScreenInfo *screen, Picture buffer, XserverRegion d
     XRectangle whole = {0, 0, screen->width, screen->height};
     XFixesSetRegion (screen->display_info->dpy, damage, &whole, 1);
     compositorXRenderRoot (screen, buffer, damage);
-    xr_closing_before (screen, buffer, damage, None);
     for (GList *li = g_list_last (screen->cwindows); li; li = li->prev)
     {
         CWindow *cw = li->data;
@@ -458,6 +479,7 @@ gboolean xfwmXRPaintEffects (ScreenInfo *screen, Picture buffer, XserverRegion d
         else if (WIN_IS_PAINTABLE (cw))
             compositorXRenderWindow (cw, buffer, damage, compositorPeekFactor (cw), 0, 0);
     }
+    xr_closing_before (screen, buffer, damage, None);
     if (peek->phase > .001)
     {
         double switching = peek->previous != None ? peek->switching : 1;

@@ -121,6 +121,11 @@ Scale + Fade works on both backends. Magic Lamp remains GL-only.
 Opening and closing animations
 ------------------------------
 
+Whisker Menu is identified by its fixed title and panel-wrapper class. Its
+map/unmap use a separate full-size bottom-edge slide on both backends. Client
+unmap is immediate and reopening cancels a previous closing image. Its geometry
+uses the physical monitor bottom; it is independent of window_effect.
+
 /general/window_effect selects None (0), Scale + Fade (1, default), or Fade
 (2). /general/window_duration is 50–1000 ms, default 160 ms. These effects
 work on both compositor backends; no compositing retains immediate opening and
@@ -153,7 +158,7 @@ pointer enters an individual thumbnail. Both renderers transition other
 windows' rendered opacity without altering the X11 client state; the selected
 window is painted on top from the live pixmap or, if iconified, its cached
 minimization snapshot.  The taskbar and popup are redrawn above the selection.
-The mode is off by default, and automatically expires after 1.1 seconds
+Dim mode is the default, with the selected-window outline disabled. Peek expires after 1.1 seconds
 without a heartbeat. `_XFWM4_PEEK_SUPPORTED` advertises support to tasklist
 versions that know about XRender Peek; the historical request name is retained.
 

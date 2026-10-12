@@ -1,3 +1,11 @@
+xfwm4-gl (4.20.0+gl1+git20261009.af5f68f-0minios3) unstable; urgency=medium
+
+  * Give Whisker Menu a separate bottom-edge slide on opening and closing on
+    OpenGL and XRender, without delaying client unmap or application launch.
+  * Share slide geometry and preserve the default Dim selection without a frame.
+
+ -- crims0n <crims0n@minios.dev>  Mon, 12 Oct 2026 03:39:46 +0300
+
 xfwm4-gl (4.20.0+gl1+git20261009.af5f68f-0minios2) unstable; urgency=medium
 
   * Load the busy cursor through the active Xcursor theme and size instead of a

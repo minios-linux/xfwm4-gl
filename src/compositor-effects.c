@@ -4,7 +4,9 @@
 #include "config.h"
 #ifdef HAVE_COMPOSITOR
 #include <math.h>
+#include <string.h>
 #include <X11/Xatom.h>
+#include <X11/Xutil.h>
 #include "compositor-effects.h"
 #include "compositor.h"
 #include "hints.h"
@@ -193,5 +195,45 @@ compositorIconTarget (CWindow *cw, cairo_rectangle_int_t *target, XfwmAnimationE
     *edge = 0;
     for (guint i = 1; i < G_N_ELEMENTS (distances); ++i)
         if (distances[i] < distances[*edge]) *edge = i;
+}
+
+gboolean
+compositorIsWhiskerMenu (CWindow *cw)
+{
+    DisplayInfo *display = cw->screen_info->display_info;
+    Window window = cw->c ? cw->c->window : cw->id;
+    gchar *name = NULL;
+    XClassHint hint = {0};
+    myDisplayErrorTrapPush (display);
+    gboolean identified = XFetchName (display->dpy, window, &name) && name &&
+                           !strcmp (name, "Whisker Menu");
+    if (identified)
+        identified = XGetClassHint (display->dpy, window, &hint) && hint.res_class &&
+          (!strcmp (hint.res_class, "Wrapper-2.0") || !strcmp (hint.res_class, "Xfce4-panel"));
+    if (myDisplayErrorTrapPop (display) != Success) identified = FALSE;
+    if (name) XFree (name);
+    if (hint.res_name) XFree (hint.res_name);
+    if (hint.res_class) XFree (hint.res_class);
+    return identified;
+}
+
+void
+compositorWindowTarget (ScreenInfo *screen, const cairo_rectangle_int_t *source,
+                        gboolean whisker, cairo_rectangle_int_t *target)
+{
+    if (whisker)
+    {
+        GdkRectangle monitor;
+        myScreenFindMonitorAtPoint (screen, source->x + source->width / 2,
+                                   source->y + source->height / 2, &monitor);
+        *target = *source;
+        target->y = monitor.y + monitor.height;
+    }
+    else
+    {
+        XfwmAnimationRect rect = {source->x, source->y, source->width, source->height};
+        XfwmAnimationRect result = xfwm_animation_window_target (&rect, screen->params->window_effect);
+        *target = (cairo_rectangle_int_t) {result.x, result.y, result.width, result.height};
+    }
 }
 #endif

@@ -213,7 +213,8 @@ unchanged. Peek automatically expires if plugin heartbeat messages stop.
 The historical property name remains compatible with earlier GL clients.
 The WM advertises `_XFWM4_PEEK_SUPPORTED = 1` while compositing is active;
 the tasklist requires this capability before requesting XRender Peek from an
-older WM. Peek is off by default.
+older WM. Tasklist and window-switcher Peek use Dim other windows by default,
+with the selected-window outline disabled on GL and XRender.
 Minimized clients can be shown through retained snapshots, subject to the
 64 MiB snapshot budget and availability of a previous capture. Snapshots are
 also retained with minimize/restore animations disabled, without animating the
@@ -264,6 +265,12 @@ Two more values exist, `glx` and `xpresent`, but with the OpenGL renderer both
 behave like `auto`. They only differ after falling back to XRender.
 
 ## When it falls back to XRender
+
+Whisker Menu uses a separate bottom-edge slide on GL and XRender. It enters
+upwards at its normal size and exits downwards; the general opening/closing
+effect does not apply. The compositor animates an owned image after unmap,
+so keyboard focus and application launch are released immediately. Reopening
+the same menu cancels its old closing image. Without compositing it is immediate.
 
 The OpenGL path is skipped, quietly and without breaking the session, if:
 
