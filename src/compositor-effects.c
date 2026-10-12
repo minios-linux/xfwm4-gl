@@ -227,7 +227,11 @@ compositorWindowTarget (ScreenInfo *screen, const cairo_rectangle_int_t *source,
         myScreenFindMonitorAtPoint (screen, source->x + source->width / 2,
                                    source->y + source->height / 2, &monitor);
         *target = *source;
-        target->y = monitor.y + monitor.height;
+        /* Match tasklist preview arrival/dismissal: up to 18 logical pixels,
+         * constant size, with room kept for the native shadow at screen edges. */
+        gint scale = gdk_window_get_scale_factor (gdk_screen_get_root_window (screen->gscr));
+        gint room = MAX (0, monitor.y + monitor.height - source->y - source->height);
+        target->y += MIN (18 * scale, room);
     }
     else
     {

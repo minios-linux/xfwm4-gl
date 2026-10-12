@@ -2808,6 +2808,9 @@ xfwmGLSetPeek (ScreenInfo *screen_info, Window client, gint mode,
 static double
 animation_progress (const XfwmGLAnimation *animation, gint64 now)
 {
+    if (animation->whisker)
+        return xfwm_popup_progress (animation->from, animation->to,
+                                    now - animation->started, animation->duration);
     return xfwm_animation_progress (animation->from, animation->to,
                                     now - animation->started, animation->duration);
 }
@@ -3081,7 +3084,7 @@ xfwmGLAnimateOpen (CWindow *cw)
     a->to = 0.0;
     a->pending = TRUE;
     a->requested = a->started = g_get_monotonic_time ();
-    a->duration = 1000LL * cw->screen_info->params->window_duration;
+    a->duration = 1000LL * (a->whisker ? 180 : cw->screen_info->params->window_duration);
     a->source = (cairo_rectangle_int_t) {cw->attr.x, cw->attr.y, cw->attr.width, cw->attr.height};
     window_animation_geometry (cw->screen_info, a);
     cw->gl_animation = a;
@@ -3135,7 +3138,7 @@ xfwmGLAnimateClose (CWindow *cw)
     a->from = a->progress = from;
     a->to = 1.0;
     a->started = g_get_monotonic_time ();
-    a->duration = xfwm_animation_duration (screen_info->params->window_duration, from, 1);
+    a->duration = xfwm_animation_duration (a->whisker ? 180 : screen_info->params->window_duration, from, 1);
     a->frames = 0;
     window_animation_geometry (screen_info, a);
     a->above_windows = g_array_new (FALSE, FALSE, sizeof (Window));

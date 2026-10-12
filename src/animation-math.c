@@ -46,6 +46,14 @@ xfwm_animation_duration (double milliseconds, double from, double to)
     return fmax (1.0, milliseconds * 1000.0 * fabs (to - from));
 }
 
+double
+xfwm_popup_progress (double from, double to, double elapsed, double duration)
+{
+    double t = unit (elapsed / fmax (duration, 1.0));
+    double remaining = 1.0 - t;
+    return lerp (from, to, 1.0 - remaining * remaining * remaining);
+}
+
 XfwmAnimationRect
 xfwm_animation_window_target (const XfwmAnimationRect *source, int effect)
 {
@@ -66,7 +74,7 @@ xfwm_animation_vertex (XfwmAnimationEffect effect, XfwmAnimationEdge edge,
                        const XfwmAnimationRect *icon,
                        double progress, double u, double v, double *x, double *y)
 {
-    double p = xfwm_animation_ease (progress);
+    double p = effect == XFWM_ANIMATION_SLIDE ? unit (progress) : xfwm_animation_ease (progress);
     double length, q, cross, target, cross_target;
     double factor, offset, distance, squeeze, travel, reached;
 
@@ -137,7 +145,7 @@ xfwm_animation_opacity (XfwmAnimationEffect effect, double progress)
 {
     double p = xfwm_animation_ease (progress);
     /* Lamp retains its texture until the final part of the collapse. */
-    if (effect == XFWM_ANIMATION_SLIDE) return 1.0;
+    if (effect == XFWM_ANIMATION_SLIDE) return 1.0 - unit (progress);
     return effect == XFWM_ANIMATION_MAGIC_LAMP
            ? 1.0 - unit ((p - 0.85) / 0.15) : 1.0 - p;
 }

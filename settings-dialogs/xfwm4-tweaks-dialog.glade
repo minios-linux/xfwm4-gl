@@ -1180,6 +1180,7 @@ when switching via keyboard shortcuts</property>
                                   <child>
                                     <object class="GtkGrid" id="cycle_peek_controls">
                                       <property name="visible">True</property>
+                                      <property name="margin">8</property>
                                       <property name="column_spacing">10</property>
                                       <property name="row_spacing">6</property>
                                       <child>

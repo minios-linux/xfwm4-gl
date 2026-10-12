@@ -28,6 +28,7 @@ typedef struct
 
 double xfwm_animation_ease (double progress);
 double xfwm_animation_progress (double from, double to, double elapsed, double duration);
+double xfwm_popup_progress (double from, double to, double elapsed, double duration);
 double xfwm_animation_duration (double milliseconds, double from, double to);
 XfwmAnimationRect xfwm_animation_window_target (const XfwmAnimationRect *source, int effect);
 void xfwm_animation_vertex (XfwmAnimationEffect effect, XfwmAnimationEdge edge,

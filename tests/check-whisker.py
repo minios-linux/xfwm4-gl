@@ -13,11 +13,15 @@ d = display.Display()
 root = d.screen().root
 window = None
 def sample():
-    raw = root.get_image(0, 0, 1280, 800, X.ZPixmap, 0xffffffff)
-    image = Image.frombytes('RGB', (1280, 800), raw.data, 'raw', 'BGRX')
+    # Keep sampling below the 180 ms transition even on 32-bit builders: read
+    # only the fixture plus its 18 px travel, not an entire desktop each frame.
+    raw = root.get_image(80, 295, 300, 475, X.ZPixmap, 0xffffffff)
+    image = Image.frombytes('RGB', (300, 475), raw.data, 'raw', 'BGRX')
     r, g, b = image.split()
     mask = ImageChops.subtract(g, ImageChops.lighter(r, b)).point(lambda p: 255 if p > 50 else 0)
-    return mask.getbbox()
+    box = mask.getbbox()
+    if box: box = (box[0] + 80, box[1] + 295, box[2] + 80, box[3] + 295)
+    return box, sum(i * n for i, n in enumerate(ImageChops.subtract(g, ImageChops.lighter(r, b)).histogram()))
 def record():
     boxes = []
     end = time.monotonic() + 1.2
@@ -38,13 +42,17 @@ try:
             window.set_wm_class('wrapper-2.0', 'Wrapper-2.0')
         window.map(); d.flush()
         opening = record()
-        assert any(box and 310 < box[1] < 790 for box in opening), opening
-        assert opening[-1] == (80, 300, 380, 750), opening
+        assert any(box and 300 < box[1] <= 318 for box, energy in opening), opening
+        assert opening[-1][0] == (80, 300, 380, 750), opening
+        full_energy = opening[-1][1]
+        assert any(0 < energy < full_energy * .98 for box, energy in opening), opening
+        assert all(not box or (300 <= box[1] <= 318 and box[2] - box[0] <= 300) for box, energy in opening)
         window.unmap(); d.sync()
         assert window.get_attributes().map_state == X.IsUnmapped
         closing = record()
-        assert any(box and 310 < box[1] < 790 for box in closing), closing
-        assert closing[-1] is None, closing
+        assert any(box and 300 < box[1] <= 318 for box, energy in closing), closing
+        assert any(0 < energy < full_energy * .98 for box, energy in closing), closing
+        assert closing[-1][0] is None, closing
         print('PASS Whisker slide map/unmap', iteration, opening, closing, flush=True)
 finally:
     if window: window.destroy(); d.flush()

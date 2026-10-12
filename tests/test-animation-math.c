@@ -69,7 +69,7 @@ main (void)
     assert (fade.x == window.x && fade.y == window.y && fade.width == window.width && fade.height == window.height);
     assert (scale.width == 460 && scale.height == 322 && scale.x == 100 && scale.y == 114);
     XfwmAnimationRect hidden = window;
-    hidden.y = 800;
+    hidden.y += 18;
     for (int step = 0; step <= 100; ++step)
     {
         double x1, y1, x2, y2, progress = step / 100.0;
@@ -80,9 +80,13 @@ main (void)
         assert (x1 == window.x && x2 - x1 == window.width);
         assert (fabs (y2 - y1 - window.height) < 1e-9);
         assert (y1 >= window.y && y1 <= hidden.y);
-        assert (xfwm_animation_opacity (XFWM_ANIMATION_SLIDE, progress) == 1);
+        assert (fabs (xfwm_animation_opacity (XFWM_ANIMATION_SLIDE, progress) - (1 - progress)) < 1e-9);
         if (step == 100) assert (y1 == hidden.y);
     }
+    assert (fabs (xfwm_popup_progress (1, 0, 90000, 180000) - .125) < 1e-9);
+    assert (fabs (xfwm_popup_progress (0, 1, 90000, 180000) - .875) < 1e-9);
+    assert (xfwm_popup_progress (1, 0, 180000, 180000) == 0);
+    assert (xfwm_popup_progress (0, 1, 180000, 180000) == 1);
     XfwmAnimationRect sources[] = {
         {80, 100, 500, 350}, {0, 0, 1366, 718}, {200, 350, 600, 450},
         {-150, -100, 700, 600}, {1920, 120, 900, 800}, {0, 0, 1, 1}

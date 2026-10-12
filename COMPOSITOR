@@ -122,9 +122,11 @@ Opening and closing animations
 ------------------------------
 
 Whisker Menu is identified by its fixed title and panel-wrapper class. Its
-map/unmap use a separate full-size bottom-edge slide on both backends. Client
-unmap is immediate and reopening cancels a previous closing image. Its geometry
-uses the physical monitor bottom; it is independent of window_effect.
+map/unmap use a separate short slide with opacity fading on both backends,
+matching tasklist previews: 180 ms with cubic ease-out and up to 18 logical
+pixels of travel, limited by the space at the monitor bottom. The image keeps
+its normal size. Client unmap is immediate and reopening cancels a previous
+closing image. This effect is independent of window_effect and window_duration.
 
 /general/window_effect selects None (0), Scale + Fade (1, default), or Fade
 (2). /general/window_duration is 50–1000 ms, default 160 ms. These effects

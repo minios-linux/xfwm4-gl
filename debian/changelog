@@ -1,3 +1,12 @@
+xfwm4-gl (4.20.0+gl1+git20261009.af5f68f-0minios4) unstable; urgency=medium
+
+  * Match Whisker appearance and dismissal to tasklist previews: short 18-pixel
+    slide with opacity fading, 180 ms duration and cubic ease-out on both
+    compositor backends, independently of ordinary window effects.
+  * Add the missing inner margin to the window-switcher effects settings frame.
+
+ -- crims0n <crims0n@minios.dev>  Mon, 12 Oct 2026 14:43:24 +0300
+
 xfwm4-gl (4.20.0+gl1+git20261009.af5f68f-0minios3) unstable; urgency=medium
 
   * Give Whisker Menu a separate bottom-edge slide on opening and closing on

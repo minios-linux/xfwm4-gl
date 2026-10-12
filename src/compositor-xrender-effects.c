@@ -175,7 +175,10 @@ static gboolean xr_allowed (CWindow *cw)
             cw->c->win_workspace == cw->screen_info->current_ws);
 }
 static double xr_progress (XRAnimation *a, gint64 now)
-{ return xfwm_animation_progress (a->from, a->to, now - a->started, a->duration); }
+{
+    return a->whisker ? xfwm_popup_progress (a->from, a->to, now - a->started, a->duration)
+      : xfwm_animation_progress (a->from, a->to, now - a->started, a->duration);
+}
 static void xr_target (CWindow *cw, XRAnimation *a)
 {
     if (a->phase == XR_MINIMIZE) compositorIconTarget (cw, &a->target, &a->edge);
@@ -277,7 +280,7 @@ void xfwmXRAnimateOpen (CWindow *cw)
     }
     a->phase = XR_OPEN; a->pending = TRUE; a->from = a->progress = 1;
     a->whisker = cw->whisker_menu;
-    a->duration = xfwm_animation_duration (cw->screen_info->params->window_duration, 1, 0);
+    a->duration = xfwm_animation_duration (a->whisker ? 180 : cw->screen_info->params->window_duration, 1, 0);
     a->started = a->requested = g_get_monotonic_time ();
     a->source = (cairo_rectangle_int_t) {cw->attr.x, cw->attr.y, cw->attr.width, cw->attr.height};
     xr_target (cw, a); cw->xr_animation = a; xr_start (cw->screen_info, a);
@@ -310,7 +313,7 @@ void xfwmXRAnimateClose (CWindow *cw)
     a->window = cw->id; a->workspace = cw->c ? cw->c->win_workspace : cw->screen_info->current_ws;
     a->sticky = a->whisker || FLAG_TEST (cw->c->flags, CLIENT_FLAG_STICKY);
     a->from = a->progress = from; a->to = 1; a->started = g_get_monotonic_time ();
-    a->duration = xfwm_animation_duration (cw->screen_info->params->window_duration, from, 1);
+    a->duration = xfwm_animation_duration (a->whisker ? 180 : cw->screen_info->params->window_duration, from, 1);
     xr_target (cw, a); a->above = g_array_new (FALSE, FALSE, sizeof (Window));
     for (GList *li = cw->screen_info->cwindows; li && li->data != cw; li = li->next)
     { Window id = ((CWindow *) li->data)->id; g_array_append_val (a->above, id); }

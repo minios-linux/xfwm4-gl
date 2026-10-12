@@ -266,9 +266,11 @@ behave like `auto`. They only differ after falling back to XRender.
 
 ## When it falls back to XRender
 
-Whisker Menu uses a separate bottom-edge slide on GL and XRender. It enters
-upwards at its normal size and exits downwards; the general opening/closing
-effect does not apply. The compositor animates an owned image after unmap,
+Whisker Menu uses a separate short slide with opacity fading on GL and XRender.
+It enters upwards at its normal size and exits downwards, matching tasklist
+previews: 180 ms with cubic ease-out and up to 18 logical pixels of travel,
+limited by the space at the monitor bottom. The general opening/closing effect
+and duration do not apply. The compositor animates an owned image after unmap,
 so keyboard focus and application launch are released immediately. Reopening
 the same menu cancels its old closing image. Without compositing it is immediate.
 
